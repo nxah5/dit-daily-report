@@ -1,0 +1,56 @@
+{
+  "project": {
+    "name": "",
+    "folderName": "",
+    "shootDay": "",
+    "date": "",
+    "ditName": "",
+    "location": "",
+    "production": "",
+    "keyCrew": "",
+    "callTime": "",
+    "wrapTime": "",
+    "reportNo": "",
+    "generatedAt": ""
+  },
+  "cameras": [],
+  "proxy": {
+    "codec": "",
+    "resolution": "",
+    "lutState": "",
+    "burnIn": "",
+    "notes": ""
+  },
+  "fileTree": {
+    "mode": "auto",
+    "customText": "",
+    "notice": "파일 트리는 변경 금지입니다. 백업 후 체크썸으로 데이터 무결성 검사가 완료되므로 파일 위치 변경 시 검증 상태가 깨질 수 있습니다."
+  },
+  "rolls": [],
+  "destinations": [],
+  "qc": {
+    "folderTreeLocked": false,
+    "checksumVerified": false,
+    "proxyChecked": false,
+    "namingChecked": false,
+    "audioChecked": false,
+    "handoffReady": false,
+    "notes": ""
+  },
+  "issues": [],
+  "handoff": {
+    "recipient": "",
+    "method": "",
+    "time": "",
+    "items": "",
+    "signature": "",
+    "notes": ""
+  },
+  "analysis": {
+    "totalFiles": 0,
+    "videoFiles": 0,
+    "audioFiles": 0,
+    "proxyFiles": 0,
+    "totalSizeGB": 0
+  }
+}

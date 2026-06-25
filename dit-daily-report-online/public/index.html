@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DIT Daily Report</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="app-bar">
+      <div class="brand">
+        <div class="brand-mark">DIT</div>
+        <div>
+          <h1>Daily Data Report</h1>
+          <p id="reportMeta">Ready</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <label class="button secondary">
+          <input id="jsonInput" type="file" accept="application/json,.json">
+          불러오기
+        </label>
+        <button id="exportJson" class="button secondary" type="button">JSON 저장</button>
+        <button id="printReport" class="button primary" type="button">PDF 인쇄</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="editor-pane">
+        <nav class="tabs">
+          <button class="tab active" type="button" data-tab="basic">기본</button>
+          <button class="tab" type="button" data-tab="camera">카메라</button>
+          <button class="tab" type="button" data-tab="media">미디어</button>
+          <button class="tab" type="button" data-tab="backup">백업</button>
+          <button class="tab" type="button" data-tab="handoff">인계</button>
+        </nav>
+
+        <div id="tab-basic" class="tab-panel active">
+          <section class="field-section">
+            <h2>프로젝트</h2>
+            <div class="field-grid two">
+              <label>프로젝트명<input data-bind="project.name" type="text"></label>
+              <label>프로젝트 폴더<input data-bind="project.folderName" type="text"></label>
+              <label>촬영 회차<input data-bind="project.shootDay" type="text"></label>
+              <label>촬영 일자<input data-bind="project.date" type="date"></label>
+              <label>DIT / 데이터 매니저<input data-bind="project.ditName" type="text"></label>
+              <label>촬영 장소<input data-bind="project.location" type="text"></label>
+              <label>프로덕션<input data-bind="project.production" type="text"></label>
+              <label>감독 / 촬영감독<input data-bind="project.keyCrew" type="text"></label>
+            </div>
+          </section>
+
+          <section class="field-section">
+            <div class="section-head">
+              <h2>파일 트리</h2>
+              <button id="copyAutoFileTree" class="button compact" type="button">현재 구조 복사</button>
+            </div>
+            <div class="tree-mode-row">
+              <label>표시 방식
+                <select data-bind="fileTree.mode">
+                  <option value="auto">자동 생성</option>
+                  <option value="custom">직접 편집</option>
+                </select>
+              </label>
+              <label>백업 후 안내문<input data-bind="fileTree.notice" type="text"></label>
+            </div>
+            <label class="full-label">직접 편집 파일 트리<textarea class="tree-edit-textarea" data-bind="fileTree.customText" rows="12"></textarea></label>
+          </section>
+
+          <section class="field-section">
+            <h2>작업 정보</h2>
+            <div class="field-grid two">
+              <label>콜타임<input data-bind="project.callTime" type="time"></label>
+              <label>랩타임<input data-bind="project.wrapTime" type="time"></label>
+              <label>리포트 번호<input data-bind="project.reportNo" type="text"></label>
+              <label>작성 시각<input data-bind="project.generatedAt" type="datetime-local"></label>
+            </div>
+          </section>
+        </div>
+
+        <div id="tab-camera" class="tab-panel">
+          <section class="field-section">
+            <div class="section-head">
+              <h2>ON-Set</h2>
+              <button id="addCamera" class="button compact" type="button">카메라 추가</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="cameraTable">
+                <thead>
+                  <tr>
+                    <th>구분</th>
+                    <th>바디</th>
+                    <th>코덱</th>
+                    <th>해상도</th>
+                    <th>FPS</th>
+                    <th>컬러</th>
+                    <th>LUT</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="field-section">
+            <h2>Proxy</h2>
+            <div class="field-grid two">
+              <label>프록시 코덱<input data-bind="proxy.codec" type="text"></label>
+              <label>프록시 해상도<input data-bind="proxy.resolution" type="text"></label>
+              <label>LUT 상태
+                <select data-bind="proxy.lutState">
+                  <option value=""></option>
+                  <option>Proxy LUT 적용</option>
+                  <option>Proxy LUT 미적용</option>
+                  <option>확인 필요</option>
+                </select>
+              </label>
+              <label>번인 정보<input data-bind="proxy.burnIn" type="text"></label>
+            </div>
+            <label class="full-label">프록시 메모<textarea data-bind="proxy.notes" rows="3"></textarea></label>
+          </section>
+        </div>
+
+        <div id="tab-media" class="tab-panel">
+          <section class="field-section">
+            <h2>자동 입력</h2>
+            <div class="import-row">
+              <label class="button secondary">
+                <input id="folderInput" type="file" webkitdirectory directory multiple>
+                폴더 분석
+              </label>
+              <label class="button secondary">
+                <input id="csvInput" type="file" accept=".csv,text/csv">
+                CSV 가져오기
+              </label>
+              <button id="clearRolls" class="button ghost" type="button">롤 초기화</button>
+            </div>
+            <div class="metrics" id="analysisMetrics"></div>
+          </section>
+
+          <section class="field-section">
+            <div class="section-head">
+              <h2>Media Roll Log</h2>
+              <button id="addRoll" class="button compact" type="button">롤 추가</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table wide" id="rollTable">
+                <thead>
+                  <tr>
+                    <th>Roll</th>
+                    <th>Camera</th>
+                    <th>Card GB</th>
+                    <th>Offload GB</th>
+                    <th>Checksum</th>
+                    <th>Status</th>
+                    <th>Clips</th>
+                    <th>Source</th>
+                    <th>Destination</th>
+                    <th>Notes</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div id="tab-backup" class="tab-panel">
+          <section class="field-section">
+            <div class="section-head">
+              <h2>백업 스토리지</h2>
+              <button id="addDestination" class="button compact" type="button">목적지 추가</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="destinationTable">
+                <thead>
+                  <tr>
+                    <th>등급</th>
+                    <th>용도</th>
+                    <th>스토리지</th>
+                    <th>경로 / 폴더</th>
+                    <th>상태</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="field-section">
+            <h2>QC Checklist</h2>
+            <div class="check-grid">
+              <label><input data-bind="qc.folderTreeLocked" type="checkbox">파일 트리 고정</label>
+              <label><input data-bind="qc.checksumVerified" type="checkbox">체크썸 검증 완료</label>
+              <label><input data-bind="qc.proxyChecked" type="checkbox">프록시 확인</label>
+              <label><input data-bind="qc.namingChecked" type="checkbox">네이밍 확인</label>
+              <label><input data-bind="qc.audioChecked" type="checkbox">오디오 확인</label>
+              <label><input data-bind="qc.handoffReady" type="checkbox">인계 준비</label>
+            </div>
+            <label class="full-label">QC 메모<textarea data-bind="qc.notes" rows="3"></textarea></label>
+          </section>
+
+          <section class="field-section">
+            <div class="section-head">
+              <h2>이슈 로그</h2>
+              <button id="addIssue" class="button compact" type="button">이슈 추가</button>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table wide" id="issueTable">
+                <thead>
+                  <tr>
+                    <th>시간</th>
+                    <th>등급</th>
+                    <th>Roll</th>
+                    <th>내용</th>
+                    <th>조치</th>
+                    <th>상태</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div id="tab-handoff" class="tab-panel">
+          <section class="field-section">
+            <h2>인계 정보</h2>
+            <div class="field-grid two">
+              <label>수령자<input data-bind="handoff.recipient" type="text"></label>
+              <label>인계 방식<input data-bind="handoff.method" type="text"></label>
+              <label>인계 시각<input data-bind="handoff.time" type="datetime-local"></label>
+              <label>서명 / 확인<input data-bind="handoff.signature" type="text"></label>
+            </div>
+            <label class="full-label">인계 항목<textarea data-bind="handoff.items" rows="4"></textarea></label>
+            <label class="full-label">비고<textarea data-bind="handoff.notes" rows="3"></textarea></label>
+          </section>
+        </div>
+      </section>
+
+      <section class="preview-pane">
+        <div id="reportPreview"></div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

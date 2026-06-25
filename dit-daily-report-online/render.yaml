@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: dit-daily-report
+    runtime: docker
+    plan: free
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
