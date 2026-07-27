@@ -1,13 +1,11 @@
 services:
   - type: web
-    name: dit-daily-report
-    runtime: node
+    name: dit-report
+    runtime: docker
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm run build
-    startCommand: pnpm run start
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /
     envVars:
-      - key: NODE_VERSION
-        value: 22.13.0
       - key: NODE_ENV
         value: production

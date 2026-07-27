@@ -33,17 +33,20 @@ pnpm test
 
 ## GitHub 업로드
 
-전달받은 ZIP의 압축을 푼 뒤, 폴더 안의 파일 전체를 새 GitHub 저장소에
-업로드합니다. `.env`, 의존성, 로컬 빌드 결과물은 패키지에 포함되지 않습니다.
+전달받은 ZIP의 압축을 푼 뒤, 안에 있는 `dit-daily-report-online` 폴더를
+GitHub 저장소 최상위에 업로드합니다. Render의 Root Directory 설정과 같은
+이름이므로 폴더명을 바꾸지 마세요. `.env`, 의존성, 로컬 빌드 결과물은
+패키지에 포함되지 않습니다.
 
 ## Render 배포
 
-저장소 루트의 `render.yaml`을 사용하는 Blueprint 방식이 가장 간단합니다.
+현재 Render 서비스의 Docker 설정에 맞춘 `Dockerfile`이 포함되어 있습니다.
 
-1. Render에서 **New → Blueprint**를 선택합니다.
-2. GitHub의 이 저장소를 연결합니다.
-3. `render.yaml` 설정을 확인하고 배포합니다.
-4. 배포 후 입력 페이지와 `/report` 출력 페이지를 확인합니다.
+1. Root Directory를 `dit-daily-report-online`로 지정합니다.
+2. Dockerfile Path를 `./Dockerfile`로 지정합니다.
+3. Docker Build Context Directory를 `.`으로 지정합니다.
+4. Docker Command와 Pre-Deploy Command는 비워 둡니다.
+5. 배포 후 입력 페이지와 `/report` 출력 페이지를 확인합니다.
 
 사이트 데이터는 현재 사용 중인 브라우저의 로컬 저장소에 보관됩니다.
 다른 기기나 브라우저와 자동 동기화되지 않습니다.

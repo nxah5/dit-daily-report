@@ -1,14 +1,22 @@
-FROM node:22-alpine
+FROM node:22.13.0-bookworm-slim
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV HOST=0.0.0.0
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
-COPY package.json ./
-COPY server.js ./
-COPY public ./public
+COPY . .
+RUN pnpm run build
 
-EXPOSE 4178
+ENV NODE_ENV="production"
+ENV HOST="0.0.0.0"
+ENV PORT="10000"
 
-CMD ["node", "server.js"]
+EXPOSE 10000
+
+CMD ["pnpm", "run", "start"]

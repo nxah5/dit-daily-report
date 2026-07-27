@@ -1,29 +1,55 @@
-# GitHub 및 Render 배포 안내
+# 현재 Render 설정에 맞춘 GitHub 배포 안내
 
 ## 1. GitHub에 업로드
 
-1. GitHub에서 새 저장소를 만듭니다.
+1. GitHub의 `nxah5/dit-daily-report` 저장소를 엽니다.
 2. 전달받은 ZIP 파일의 압축을 풉니다.
-3. 압축을 푼 폴더 안의 파일 전체를 저장소 최상위에 업로드합니다.
-4. GitHub에서 `render.yaml`, `package.json`, `pnpm-lock.yaml`이 보이는지 확인합니다.
+3. 안에 있는 `dit-daily-report-online` 폴더를 저장소 최상위에 업로드합니다.
+4. GitHub에서 아래 경로가 보이는지 확인합니다.
+
+```text
+dit-daily-report-online/
+├ Dockerfile
+├ .dockerignore
+├ package.json
+├ pnpm-lock.yaml
+├ app/
+└ public/
+```
 
 `node_modules`, `.env`, 로컬 빌드 결과물과 사용자가 브라우저에 입력한 리포트
 데이터는 ZIP에 포함되지 않습니다.
 
-## 2. Render에 배포
+## 2. Render 설정값
 
-1. Render 대시보드에서 **New → Blueprint**를 선택합니다.
-2. 위에서 만든 GitHub 저장소를 연결합니다.
-3. Render가 저장소의 `render.yaml`을 읽으면 설정을 확인하고 배포합니다.
-4. 배포가 끝나면 제공된 주소에서 입력 페이지를 확인합니다.
-5. 주소 뒤에 `/report`를 붙여 A4 출력 페이지도 확인합니다.
+현재 `dit-report` Web Service의 Settings 화면을 아래와 같이 맞춥니다.
 
-별도의 API 키나 환경변수는 필요하지 않습니다.
+| Render 항목 | 입력값 |
+| --- | --- |
+| Source | `nxah5/dit-daily-report` |
+| Branch | `main` |
+| Root Directory | `dit-daily-report-online` |
+| Registry Credential | `No credential` |
+| Dockerfile Path | `./Dockerfile` |
+| Docker Build Context Directory | `.` |
+| Docker Command | 비워 둠 |
+| Pre-Deploy Command | 비워 둠 |
+| Auto-Deploy | `On Commit` |
+| Health Check Path | `/` |
+
+Root Directory가 지정되어 있으므로 Dockerfile Path와 Docker Build Context는
+저장소 전체 경로가 아니라 해당 폴더를 기준으로 입력합니다.
+
+설정을 저장한 뒤 **Manual Deploy → Deploy latest commit**을 실행합니다.
+배포가 끝나면 `https://dit-daily-report.onrender.com`과
+`https://dit-daily-report.onrender.com/report`를 확인합니다.
+
+별도의 API 키나 Registry Credential은 필요하지 않습니다.
 
 ## 3. 업데이트
 
-수정된 파일을 같은 GitHub 저장소에 다시 업로드하거나 푸시하면 Render가
-자동으로 새 버전을 배포합니다.
+수정된 `dit-daily-report-online` 폴더를 같은 GitHub 저장소의 `main`
+브랜치에 다시 업로드하거나 푸시하면 Render가 자동으로 새 버전을 배포합니다.
 
 ## 참고
 
