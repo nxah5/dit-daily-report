@@ -1,11 +1,13 @@
 services:
   - type: web
     name: dit-daily-report
-    runtime: docker
+    runtime: node
     plan: free
-    autoDeployTrigger: commit
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm run build
+    startCommand: pnpm run start
+    healthCheckPath: /
     envVars:
+      - key: NODE_VERSION
+        value: 22.13.0
       - key: NODE_ENV
         value: production
-      - key: HOST
-        value: 0.0.0.0

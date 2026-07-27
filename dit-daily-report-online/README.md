@@ -1,30 +1,51 @@
 # DIT Daily Report
 
-DIT Daily Data Report를 온라인에서 작성하고 PDF로 인쇄할 수 있는 웹앱입니다.
+촬영 현장의 미디어 롤, 오프로드, 저장매체, QC, 인계, 폴더트리 정보를
+입력하고 A4 데일리 리포트로 출력하는 웹앱입니다. 초기 화면에는 개인 또는
+프로젝트 더미 데이터가 포함되지 않습니다.
+
+## 주요 기능
+
+- 입력 페이지와 출력 미리보기 페이지 분리
+- 입력 내용 브라우저 자동 저장
+- 롤·오프로드·클립·백업본 자동 합계
+- 계층형 폴더 추가·수정·삭제 및 출력용 폴더 트리 자동 생성
+- 저장매체 상태 드롭다운 제공
+- 표지 → 전체 요약 → 세부 페이지 순서의 A4 출력
+- 브라우저 인쇄 메뉴를 이용한 PDF 저장
 
 ## 로컬 실행
 
+Node.js 22.13 이상이 필요합니다.
+
 ```bash
-node server.js
+corepack enable
+pnpm install
+pnpm run dev
 ```
 
-브라우저에서 `http://localhost:4178`을 엽니다.
+빌드 확인:
 
-## 온라인 배포
+```bash
+pnpm run build
+pnpm test
+```
 
-이 앱은 별도 API 키나 서버 데이터베이스가 필요 없는 정적 웹앱입니다. 배틀그라운드 리더보드와 같은 Render/Docker 방식으로 배포할 수 있게 구성되어 있습니다.
+## GitHub 업로드
 
-### Render
+전달받은 ZIP의 압축을 푼 뒤, 폴더 안의 파일 전체를 새 GitHub 저장소에
+업로드합니다. `.env`, 의존성, 로컬 빌드 결과물은 패키지에 포함되지 않습니다.
 
-1. 이 폴더를 GitHub 저장소에 올립니다.
-2. Render에서 새 Blueprint 또는 Web Service를 만듭니다.
-3. Blueprint를 쓰면 `render.yaml`이 `Dockerfile`을 사용해 배포합니다.
-4. 배포가 끝나면 `https://서비스이름.onrender.com`에서 앱을 엽니다.
+## Render 배포
 
-## 파일
+저장소 루트의 `render.yaml`을 사용하는 Blueprint 방식이 가장 간단합니다.
 
-- `public/index.html`: 앱 화면
-- `public/app.js`: 리포트 자동 입력 및 저장 로직
-- `public/styles.css`: 화면 및 인쇄 스타일
-- `server.js`: 온라인 배포용 정적 서버
-- `Dockerfile`, `render.yaml`: Render 배포 설정
+1. Render에서 **New → Blueprint**를 선택합니다.
+2. GitHub의 이 저장소를 연결합니다.
+3. `render.yaml` 설정을 확인하고 배포합니다.
+4. 배포 후 입력 페이지와 `/report` 출력 페이지를 확인합니다.
+
+사이트 데이터는 현재 사용 중인 브라우저의 로컬 저장소에 보관됩니다.
+다른 기기나 브라우저와 자동 동기화되지 않습니다.
+
+상세한 배포 순서는 [DEPLOY_RENDER.md](./DEPLOY_RENDER.md)를 확인하세요.
