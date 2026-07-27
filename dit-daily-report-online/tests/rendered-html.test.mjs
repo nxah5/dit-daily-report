@@ -111,6 +111,15 @@ test("vinext emits a standalone Render server", async () => {
   assert.equal(packageJson.devDependencies.tailwindcss, undefined);
 });
 
+test("stale GitHub uploads cannot reload the removed Tailwind plugin", async () => {
+  const postcssConfig = await readFile(
+    new URL("../postcss.config.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(postcssConfig, /@tailwindcss\/postcss/);
+  assert.match(postcssConfig, /plugins:\s*\{\s*\}/);
+});
+
 test("Render build does not require the local Sites hosting file", async () => {
   const viteConfig = await readFile(
     new URL("../vite.config.ts", import.meta.url),
