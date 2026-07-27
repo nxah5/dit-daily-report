@@ -87,3 +87,16 @@ test("Docker build installs pnpm without Corepack signature verification", async
   assert.match(dockerfile, /HOST="0\.0\.0\.0"/);
   assert.match(dockerfile, /CMD \["pnpm", "run", "start"\]/);
 });
+
+test("Render build does not require the local Sites hosting file", async () => {
+  const viteConfig = await readFile(
+    new URL("../vite.config.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    viteConfig,
+    /import\s+hostingConfig\s+from\s+["']\.\/\.openai\/hosting\.json["']/,
+  );
+  assert.match(viteConfig, /existsSync\(hostingConfigUrl\)/);
+  assert.match(viteConfig, /d1:\s*null,\s*r2:\s*null/);
+});
