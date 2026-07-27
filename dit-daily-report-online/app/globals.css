@@ -721,6 +721,42 @@ button {
   width: 180px;
 }
 
+.clip-sheet {
+  min-width: 1180px;
+}
+
+.clip-sheet th:nth-child(2) {
+  width: 155px;
+}
+
+.clip-sheet th:nth-child(3),
+.clip-sheet th:nth-child(4),
+.clip-sheet th:nth-child(5) {
+  width: 63px;
+}
+
+.clip-sheet th:nth-child(6),
+.clip-sheet th:nth-child(7) {
+  width: 50px;
+}
+
+.clip-sheet th:nth-child(8) {
+  width: 70px;
+}
+
+.clip-sheet th:nth-child(9),
+.clip-sheet th:nth-child(10) {
+  width: 95px;
+}
+
+.clip-sheet th:nth-child(11) {
+  width: 86px;
+}
+
+.clip-sheet th:nth-child(12) {
+  width: 170px;
+}
+
 .storage-sheet {
   min-width: 860px;
 }
@@ -1612,6 +1648,57 @@ button {
   font-size: 6.4pt;
   line-height: 1.55;
   margin: 0;
+}
+
+.clip-table th,
+.clip-table td {
+  font-size: 5.2pt;
+  padding-left: 0.8mm;
+  padding-right: 0.8mm;
+}
+
+.clip-table th:nth-child(1) {
+  width: 27mm;
+}
+
+.clip-table th:nth-child(2) {
+  width: 11mm;
+}
+
+.clip-table th:nth-child(3),
+.clip-table th:nth-child(4),
+.clip-table th:nth-child(5),
+.clip-table th:nth-child(6) {
+  width: 8mm;
+}
+
+.clip-table th:nth-child(7) {
+  width: 11mm;
+}
+
+.clip-table th:nth-child(8),
+.clip-table th:nth-child(9) {
+  width: 18mm;
+}
+
+.clip-table th:nth-child(10) {
+  width: 17mm;
+}
+
+.coverage-block {
+  border-top: 0.4mm solid #17233c;
+  margin-top: 8mm;
+  padding-top: 4mm;
+}
+
+.coverage-table {
+  margin-top: 3mm;
+  width: 95mm;
+}
+
+.coverage-table th,
+.coverage-table td {
+  text-align: center;
 }
 
 .storage-table th:nth-child(1) {

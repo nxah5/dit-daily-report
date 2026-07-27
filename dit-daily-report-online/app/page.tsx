@@ -11,6 +11,8 @@ import {
 } from "react";
 import Link from "next/link";
 import {
+  ClipLog,
+  emptyClip,
   emptyIssue,
   emptyRoll,
   emptyStorage,
@@ -29,10 +31,11 @@ import {
 const sections = [
   ["basic", "01", "기본 정보"],
   ["rolls", "02", "미디어 롤"],
-  ["storage", "03", "저장매체"],
-  ["qc", "04", "QC · 이슈"],
-  ["handover", "05", "인계"],
-  ["folder", "06", "폴더트리"],
+  ["clips", "03", "클립 · 씬"],
+  ["storage", "04", "저장매체"],
+  ["qc", "05", "QC · 이슈"],
+  ["handover", "06", "인계"],
+  ["folder", "07", "폴더트리"],
 ] as const;
 
 type FolderNode = {
@@ -296,6 +299,15 @@ export default function InputPage() {
     setData((current) => ({
       ...current,
       rolls: current.rolls.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...patch } : row,
+      ),
+    }));
+  };
+
+  const updateClip = (index: number, patch: Partial<ClipLog>) => {
+    setData((current) => ({
+      ...current,
+      clips: current.clips.map((row, rowIndex) =>
         rowIndex === index ? { ...row, ...patch } : row,
       ),
     }));
@@ -722,9 +734,189 @@ export default function InputPage() {
             </div>
           </section>
 
+          <section className="form-card" id="clips">
+            <SectionHeader
+              eyebrow="03 · CLIP / SCENE"
+              title="클립 · 씬 매핑"
+              description="클립과 씬·컷·테이크를 연결하면 출력 페이지에서 씬 커버리지가 자동 집계됩니다."
+              action={
+                <button
+                  className="button button-ghost"
+                  type="button"
+                  onClick={() =>
+                    setData((current) => ({
+                      ...current,
+                      clips: [...current.clips, emptyClip()],
+                    }))
+                  }
+                >
+                  + 클립 추가
+                </button>
+              }
+            />
+            <div className="sheet-editor">
+              <div className="sheet-scroll">
+                <table className="sheet-table clip-sheet">
+                  <caption className="sr-only">클립과 씬 매핑 기록</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Clip File Name</th>
+                      <th scope="col">Roll</th>
+                      <th scope="col">Cam</th>
+                      <th scope="col">Scene</th>
+                      <th scope="col">Cut</th>
+                      <th scope="col">Take</th>
+                      <th scope="col">OK / NG</th>
+                      <th scope="col">TC In</th>
+                      <th scope="col">TC Out</th>
+                      <th scope="col">Audio Roll</th>
+                      <th scope="col">비고</th>
+                      <th scope="col">
+                        <span className="sr-only">삭제</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.clips.map((row, index) => (
+                      <tr key={`clip-${index}`}>
+                        <th className="sheet-row-number" scope="row">
+                          {String(index + 1).padStart(2, "0")}
+                        </th>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 파일명`}
+                            value={row.fileName}
+                            onChange={(event) =>
+                              updateClip(index, {
+                                fileName: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 롤`}
+                            value={row.roll}
+                            onChange={(event) =>
+                              updateClip(index, { roll: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 카메라`}
+                            value={row.camera}
+                            onChange={(event) =>
+                              updateClip(index, { camera: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 씬`}
+                            value={row.scene}
+                            onChange={(event) =>
+                              updateClip(index, { scene: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 컷`}
+                            value={row.cut}
+                            onChange={(event) =>
+                              updateClip(index, { cut: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 테이크`}
+                            value={row.take}
+                            onChange={(event) =>
+                              updateClip(index, { take: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <select
+                            aria-label={`${index + 1}번째 클립 OK 또는 NG`}
+                            value={row.result}
+                            onChange={(event) =>
+                              updateClip(index, {
+                                result: event.target.value as "OK" | "NG",
+                              })
+                            }
+                          >
+                            <option value="OK">OK</option>
+                            <option value="NG">NG</option>
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 시작 타임코드`}
+                            placeholder="00:00:00:00"
+                            value={row.tcIn}
+                            onChange={(event) =>
+                              updateClip(index, { tcIn: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 종료 타임코드`}
+                            placeholder="00:00:00:00"
+                            value={row.tcOut}
+                            onChange={(event) =>
+                              updateClip(index, { tcOut: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 오디오 롤`}
+                            value={row.audioRoll}
+                            onChange={(event) =>
+                              updateClip(index, {
+                                audioRoll: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            aria-label={`${index + 1}번째 클립 비고`}
+                            value={row.notes}
+                            onChange={(event) =>
+                              updateClip(index, { notes: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="sheet-delete-cell">
+                          <RemoveButton
+                            label={`${index + 1}번째 클립 삭제`}
+                            onClick={() =>
+                              setData((current) => ({
+                                ...current,
+                                clips: current.clips.filter(
+                                  (_, rowIndex) => rowIndex !== index,
+                                ),
+                              }))
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
           <section className="form-card" id="storage">
             <SectionHeader
-              eyebrow="03 · STORAGE"
+              eyebrow="04 · STORAGE"
               title="저장매체"
               description="Primary와 Secondary 사본의 위치, 포맷, 준비 상태를 기록합니다."
               action={
@@ -870,7 +1062,7 @@ export default function InputPage() {
 
           <section className="form-card" id="qc">
             <SectionHeader
-              eyebrow="04 · QUALITY CONTROL"
+              eyebrow="05 · QUALITY CONTROL"
               title="QC 체크리스트"
               description="상태는 요약 페이지와 경고 영역에 바로 반영됩니다."
             />
@@ -1074,7 +1266,7 @@ export default function InputPage() {
 
           <section className="form-card" id="handover">
             <SectionHeader
-              eyebrow="05 · HANDOVER"
+              eyebrow="06 · HANDOVER"
               title="인계 정보"
               description="수령자와 확인 상태를 명확히 남겨 후속 담당자가 바로 파악할 수 있게 합니다."
             />
@@ -1184,7 +1376,7 @@ export default function InputPage() {
 
           <section className="form-card" id="folder">
             <SectionHeader
-              eyebrow="06 · FILE TREE"
+              eyebrow="07 · FILE TREE"
               title="폴더트리"
               description="폴더 이름과 상위 폴더를 선택하면 출력용 트리가 자동으로 만들어집니다."
             />
@@ -1327,8 +1519,8 @@ export default function InputPage() {
             <div>
               <strong>리포트 작성 준비 완료</strong>
               <span>
-                {data.rolls.length}개 미디어 항목 · {data.storage.length}개
-                저장매체 · {data.issues.length}개 이슈
+                {data.rolls.length}개 미디어 항목 · {data.clips.length}개 클립
+                · {data.storage.length}개 저장매체 · {data.issues.length}개 이슈
               </span>
             </div>
             <button className="button button-primary" type="submit">

@@ -133,6 +133,7 @@ export default function ReportPage() {
 
   const metrics = useMemo(() => getReportMetrics(data), [data]);
   const rollChunks = useMemo(() => chunk(data.rolls, 12), [data.rolls]);
+  const clipChunks = useMemo(() => chunk(data.clips, 14), [data.clips]);
   const storageChunks = useMemo(
     () => chunk(data.storage, 13),
     [data.storage],
@@ -141,6 +142,27 @@ export default function ReportPage() {
     () => chunk(data.folderTree.split("\n"), 34),
     [data.folderTree],
   );
+
+  const sceneCoverage = useMemo(() => {
+    const scenes = new Map<
+      string,
+      { scene: string; takes: number; ok: number; ng: number }
+    >();
+    data.clips.forEach((clip) => {
+      const scene = clip.scene.trim() || "미지정";
+      const current = scenes.get(scene) ?? {
+        scene,
+        takes: 0,
+        ok: 0,
+        ng: 0,
+      };
+      current.takes += 1;
+      if (clip.result === "OK") current.ok += 1;
+      if (clip.result === "NG") current.ng += 1;
+      scenes.set(scene, current);
+    });
+    return [...scenes.values()];
+  }, [data.clips]);
 
   const passedQc = data.qc.filter((item) =>
     ["OK", "PASS"].includes(item.status),
@@ -152,11 +174,13 @@ export default function ReportPage() {
   const totalPages =
     2 +
     rollChunks.length +
+    clipChunks.length +
     storageChunks.length +
     2 +
     folderChunks.length;
   const rollPageStart = 3;
-  const storagePageStart = rollPageStart + rollChunks.length;
+  const clipPageStart = rollPageStart + rollChunks.length;
+  const storagePageStart = clipPageStart + clipChunks.length;
   const qcPageNumber = storagePageStart + storageChunks.length;
   const handoverPageNumber = qcPageNumber + 1;
   const folderPageStart = handoverPageNumber + 1;
@@ -319,6 +343,21 @@ export default function ReportPage() {
 
             <section className="summary-card">
               <div className="card-heading">
+                <span>SCENE COVERAGE</span>
+                <strong>씬 커버리지</strong>
+              </div>
+              <div className="summary-bigline">
+                <strong>{sceneCoverage.length}</strong>
+                <span>개 씬</span>
+              </div>
+              <p>
+                OK {data.clips.filter((clip) => clip.result === "OK").length} ·
+                NG {data.clips.filter((clip) => clip.result === "NG").length}
+              </p>
+            </section>
+
+            <section className="summary-card">
+              <div className="card-heading">
                 <span>STORAGE</span>
                 <strong>백업 상태</strong>
               </div>
@@ -455,18 +494,117 @@ export default function ReportPage() {
           );
         })}
 
+        {clipChunks.map((rows, chunkIndex) => {
+          return (
+            <Page
+              data={data}
+              pageNumber={clipPageStart + chunkIndex}
+              totalPages={totalPages}
+              section="DETAIL 02"
+              title="클립 · 씬"
+              key={`clip-page-${chunkIndex}`}
+            >
+              <SectionTitle
+                number="02"
+                eyebrow="CLIP / SCENE"
+                title="클립 · 씬 매핑"
+                description={`클립별 씬·컷·테이크와 타임코드${
+                  clipChunks.length > 1
+                    ? ` · ${chunkIndex + 1}/${clipChunks.length}`
+                    : ""
+                }`}
+              />
+              <table className="print-table clip-table">
+                <thead>
+                  <tr>
+                    <th>Clip File Name</th>
+                    <th>Roll</th>
+                    <th>Cam</th>
+                    <th>Scene</th>
+                    <th>Cut</th>
+                    <th>Take</th>
+                    <th>OK/NG</th>
+                    <th>TC In</th>
+                    <th>TC Out</th>
+                    <th>Audio</th>
+                    <th>비고</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((clip, index) => (
+                    <tr key={`${clip.fileName}-${index}`}>
+                      <td>{clip.fileName || "—"}</td>
+                      <td>{clip.roll || "—"}</td>
+                      <td>{clip.camera || "—"}</td>
+                      <td>{clip.scene || "—"}</td>
+                      <td>{clip.cut || "—"}</td>
+                      <td>{clip.take || "—"}</td>
+                      <td>
+                        <strong className={statusTone(clip.result)}>
+                          {clip.result}
+                        </strong>
+                      </td>
+                      <td>{clip.tcIn || "—"}</td>
+                      <td>{clip.tcOut || "—"}</td>
+                      <td>{clip.audioRoll || "—"}</td>
+                      <td>{clip.notes || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {chunkIndex === clipChunks.length - 1 ? (
+                <div className="coverage-block">
+                  <div className="card-heading">
+                    <span>AUTO SUMMARY</span>
+                    <strong>씬 커버리지</strong>
+                  </div>
+                  <table className="print-table coverage-table">
+                    <thead>
+                      <tr>
+                        <th>Scene</th>
+                        <th>테이크</th>
+                        <th>OK</th>
+                        <th>NG</th>
+                        <th>OK 존재?</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sceneCoverage.map((scene) => (
+                        <tr key={scene.scene}>
+                          <td>{scene.scene}</td>
+                          <td>{scene.takes}</td>
+                          <td>{scene.ok}</td>
+                          <td>{scene.ng}</td>
+                          <td>
+                            <strong
+                              className={scene.ok ? "tone-good" : "tone-bad"}
+                            >
+                              {scene.ok ? "OK 확보" : "확인 필요"}
+                            </strong>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </Page>
+          );
+        })}
+
         {storageChunks.map((rows, chunkIndex) => {
           return (
             <Page
               data={data}
               pageNumber={storagePageStart + chunkIndex}
               totalPages={totalPages}
-              section="DETAIL 02"
+              section="DETAIL 03"
               title="저장매체"
               key={`storage-page-${chunkIndex}`}
             >
               <SectionTitle
-                number="02"
+                number="03"
                 eyebrow="STORAGE"
                 title="백업 저장매체"
                 description={`사본 등급, 포맷, 경로와 준비 상태${
@@ -542,11 +680,11 @@ export default function ReportPage() {
           data={data}
           pageNumber={qcPageNumber}
           totalPages={totalPages}
-          section="DETAIL 03"
+          section="DETAIL 04"
           title="QC · 이슈"
         >
           <SectionTitle
-            number="03"
+            number="04"
             eyebrow="QUALITY CONTROL"
             title="QC 체크리스트 · 이슈 로그"
             description="검증 결과와 후속 조치가 필요한 항목"
@@ -600,11 +738,11 @@ export default function ReportPage() {
           data={data}
           pageNumber={handoverPageNumber}
           totalPages={totalPages}
-          section="DETAIL 04"
+          section="DETAIL 05"
           title="인계"
         >
           <SectionTitle
-            number="04"
+            number="05"
             eyebrow="HANDOVER"
             title="데이터 인계"
             description="전달 항목, 수령자와 확인 기록"
@@ -649,12 +787,12 @@ export default function ReportPage() {
               data={data}
               pageNumber={folderPageStart + chunkIndex}
               totalPages={totalPages}
-              section="DETAIL 05"
+              section="DETAIL 06"
               title="폴더트리"
               key={`folder-page-${chunkIndex}`}
             >
               <SectionTitle
-                number="05"
+                number="06"
                 eyebrow="FILE TREE"
                 title={`파일 트리 구조 · ${data.project.shootDay}`}
                 description={`백업 후 위치 변경 금지${

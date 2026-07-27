@@ -33,12 +33,13 @@ test("renders the DIT input page", async () => {
   assert.match(html, /오늘의 촬영 데이터를 정리하세요/);
   assert.match(html, /미디어 롤/);
   assert.match(html, /sheet-table roll-sheet/);
+  assert.match(html, /sheet-table clip-sheet/);
   assert.match(html, /sheet-table storage-sheet/);
   assert.match(html, /sheet-table qc-sheet/);
   assert.match(html, /sheet-table issue-sheet/);
+  assert.match(html, /클립 · 씬 매핑/);
   assert.match(html, /새 폴더명/);
   assert.match(html, /\+ 폴더 추가/);
-  assert.doesNotMatch(html, /sheet-table clip-sheet|클립 · 씬 매핑/);
   assert.match(html, /출력 페이지 만들기/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -49,8 +50,19 @@ test("renders the separate A4 report page", async () => {
   const html = await response.text();
   assert.match(html, /Digital Imaging Technician Daily Report/);
   assert.match(html, /전체 요약/);
-  assert.doesNotMatch(html, /클립 · 씬 매핑|CLIP \/ SCENE/);
+  assert.match(html, /씬 커버리지/);
   assert.match(html, /인쇄 \/ PDF 저장/);
+});
+
+test("wires Clip / Scene rows into the A4 detail report", async () => {
+  const source = await readFile(
+    new URL("../app/report/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /chunk\(data\.clips,\s*14\)/);
+  assert.match(source, /className="print-table clip-table"/);
+  assert.match(source, /title="클립 · 씬 매핑"/);
+  assert.match(source, /씬 커버리지/);
 });
 
 test("declares A4 print output rules", async () => {
@@ -71,10 +83,15 @@ test("ships with an empty project data set", async () => {
   );
   assert.match(source, /STORAGE_KEY\s*=\s*"dit-daily-report-v2"/);
   assert.match(source, /rolls:\s*\[\]/);
+  assert.match(source, /clips:\s*\[\]/);
   assert.match(source, /storage:\s*\[\]/);
   assert.match(source, /issues:\s*\[\]/);
   assert.match(source, /folderTree:\s*""/);
   assert.match(source, /"Ready"[\s\S]*"Hold"[\s\S]*"Pending"/);
+  assert.match(
+    source,
+    /emptyClip[\s\S]*fileName:[\s\S]*scene:[\s\S]*result:\s*"OK"/,
+  );
 });
 
 test("Docker build uses a lightweight standalone runtime", async () => {
