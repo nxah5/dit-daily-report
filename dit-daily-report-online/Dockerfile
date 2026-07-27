@@ -3,7 +3,7 @@ FROM node:22.13.0-bookworm-slim
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+RUN npm install --global pnpm@11.9.0
 
 WORKDIR /app
 

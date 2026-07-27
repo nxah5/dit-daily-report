@@ -76,3 +76,14 @@ test("ships with an empty project data set", async () => {
   assert.match(source, /folderTree:\s*""/);
   assert.match(source, /"Ready"[\s\S]*"Hold"[\s\S]*"Pending"/);
 });
+
+test("Docker build installs pnpm without Corepack signature verification", async () => {
+  const dockerfile = await readFile(
+    new URL("../Dockerfile", import.meta.url),
+    "utf8",
+  );
+  assert.match(dockerfile, /npm install --global pnpm@11\.9\.0/);
+  assert.doesNotMatch(dockerfile, /corepack/);
+  assert.match(dockerfile, /HOST="0\.0\.0\.0"/);
+  assert.match(dockerfile, /CMD \["pnpm", "run", "start"\]/);
+});
