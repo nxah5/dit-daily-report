@@ -17,7 +17,7 @@ import {
 import type { ClipLog, ReportData } from "../report-data";
 
 const CLIP_FALLBACK_ROWS_PER_PAGE = 23;
-const SCENE_COVERAGE_ROWS_PER_PAGE = 23;
+const SCENE_COVERAGE_ROWS_PER_PAGE = 20;
 
 function chunk<T>(rows: T[], size: number): T[][] {
   if (rows.length === 0) return [[]];
@@ -74,6 +74,24 @@ function statusTone(value: string) {
     return "tone-bad";
   }
   return "tone-neutral";
+}
+
+function PrintValue({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const value =
+    children === null || children === undefined || children === ""
+      ? "—"
+      : children;
+  return (
+    <span className={`print-fluid-text ${className}`.trim()}>
+      {value}
+    </span>
+  );
 }
 
 function Page({
@@ -151,21 +169,21 @@ function ClipTable({
             data-clip-measure-row={measurement ? "true" : undefined}
             key={`${clip.fileName}-${clip.roll}-${index}`}
           >
-            <td>{clip.fileName || "—"}</td>
-            <td>{clip.roll || "—"}</td>
-            <td>{clip.camera || "—"}</td>
-            <td>{clip.scene || "—"}</td>
-            <td>{clip.cut || "—"}</td>
-            <td>{clip.take || "—"}</td>
+            <td><PrintValue>{clip.fileName}</PrintValue></td>
+            <td><PrintValue>{clip.roll}</PrintValue></td>
+            <td><PrintValue>{clip.camera}</PrintValue></td>
+            <td><PrintValue>{clip.scene}</PrintValue></td>
+            <td><PrintValue>{clip.cut}</PrintValue></td>
+            <td><PrintValue>{clip.take}</PrintValue></td>
             <td>
-              <strong className={statusTone(clip.result)}>
+              <PrintValue className={statusTone(clip.result)}>
                 {clip.result}
-              </strong>
+              </PrintValue>
             </td>
-            <td>{clip.tcIn || "—"}</td>
-            <td>{clip.tcOut || "—"}</td>
-            <td>{clip.audioRoll || "—"}</td>
-            <td>{clip.notes || "—"}</td>
+            <td><PrintValue>{clip.tcIn}</PrintValue></td>
+            <td><PrintValue>{clip.tcOut}</PrintValue></td>
+            <td><PrintValue>{clip.audioRoll}</PrintValue></td>
+            <td><PrintValue>{clip.notes}</PrintValue></td>
           </tr>
         ))}
       </tbody>
@@ -183,7 +201,7 @@ function InfoRow({
   return (
     <div className="print-info-row">
       <span>{label}</span>
-      <strong>{value || "—"}</strong>
+      <strong><PrintValue>{value}</PrintValue></strong>
     </div>
   );
 }
@@ -637,19 +655,25 @@ export default function ReportPage() {
                 <tbody>
                   {rows.map((row, index) => (
                     <tr key={`${row.roll}-${row.camera}-${index}`}>
-                      <td>{row.roll || "—"}</td>
-                      <td>{row.camera || "—"}</td>
-                      <td>{row.codec || "—"}</td>
-                      <td>{row.card || "—"}</td>
-                      <td className="numeric">{Number(row.offloadGb).toFixed(2)}</td>
-                      <td>{row.checksum || "—"}</td>
-                      <td>
-                        <strong className={statusTone(row.status)}>
-                          {row.status || "—"}
-                        </strong>
+                      <td><PrintValue>{row.roll}</PrintValue></td>
+                      <td><PrintValue>{row.camera}</PrintValue></td>
+                      <td><PrintValue>{row.codec}</PrintValue></td>
+                      <td><PrintValue>{row.card}</PrintValue></td>
+                      <td className="numeric">
+                        <PrintValue>
+                          {Number(row.offloadGb).toFixed(2)}
+                        </PrintValue>
                       </td>
-                      <td className="numeric">{row.clips}</td>
-                      <td>{row.notes || "—"}</td>
+                      <td><PrintValue>{row.checksum}</PrintValue></td>
+                      <td>
+                        <PrintValue className={statusTone(row.status)}>
+                          {row.status || "—"}
+                        </PrintValue>
+                      </td>
+                      <td className="numeric">
+                        <PrintValue>{row.clips}</PrintValue>
+                      </td>
+                      <td><PrintValue>{row.notes}</PrintValue></td>
                     </tr>
                   ))}
                 </tbody>
@@ -734,14 +758,16 @@ export default function ReportPage() {
               <tbody>
                 {scenes.map((scene) => (
                   <tr key={scene.scene}>
-                    <td>{scene.scene}</td>
-                    <td>{scene.takes}</td>
-                    <td>{scene.ok}</td>
-                    <td>{scene.ng}</td>
+                    <td><PrintValue>{scene.scene}</PrintValue></td>
+                    <td><PrintValue>{scene.takes}</PrintValue></td>
+                    <td><PrintValue>{scene.ok}</PrintValue></td>
+                    <td><PrintValue>{scene.ng}</PrintValue></td>
                     <td>
-                      <strong className={scene.ok ? "tone-good" : "tone-bad"}>
+                      <PrintValue
+                        className={scene.ok ? "tone-good" : "tone-bad"}
+                      >
                         {scene.ok ? "OK 확보" : "확인 필요"}
-                      </strong>
+                      </PrintValue>
                     </td>
                   </tr>
                 ))}
@@ -784,15 +810,15 @@ export default function ReportPage() {
                 <tbody>
                   {rows.map((row, index) => (
                     <tr key={`${row.storage}-${index}`}>
-                      <td>{row.grade || "—"}</td>
-                      <td>{row.purpose || "—"}</td>
-                      <td>{row.storage || "—"}</td>
-                      <td>{row.format || "—"}</td>
-                      <td>{row.path || "—"}</td>
+                      <td><PrintValue>{row.grade}</PrintValue></td>
+                      <td><PrintValue>{row.purpose}</PrintValue></td>
+                      <td><PrintValue>{row.storage}</PrintValue></td>
+                      <td><PrintValue>{row.format}</PrintValue></td>
+                      <td><PrintValue>{row.path}</PrintValue></td>
                       <td>
-                        <strong className={statusTone(row.status)}>
+                        <PrintValue className={statusTone(row.status)}>
                           {row.status || "—"}
-                        </strong>
+                        </PrintValue>
                       </td>
                     </tr>
                   ))}
@@ -872,18 +898,18 @@ export default function ReportPage() {
               <tbody>
                 {data.issues.map((issue, index) => (
                   <tr key={`${issue.time}-${index}`}>
-                    <td>{issue.time || "—"}</td>
+                    <td><PrintValue>{issue.time}</PrintValue></td>
                     <td>
-                      <strong
+                      <PrintValue
                         className={
                           issue.severity === "High" ? "tone-bad" : ""
                         }
                       >
                         {issue.severity} / {issue.roll || "공통"}
-                      </strong>
+                      </PrintValue>
                     </td>
-                    <td>{issue.detail || "—"}</td>
-                    <td>{issue.status || "—"}</td>
+                    <td><PrintValue>{issue.detail}</PrintValue></td>
+                    <td><PrintValue>{issue.status}</PrintValue></td>
                   </tr>
                 ))}
               </tbody>

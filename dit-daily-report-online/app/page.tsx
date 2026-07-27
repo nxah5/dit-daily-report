@@ -3,7 +3,9 @@
 import {
   CSSProperties,
   FormEvent,
+  forwardRef,
   ReactNode,
+  TextareaHTMLAttributes,
   useEffect,
   useMemo,
   useRef,
@@ -192,6 +194,29 @@ function Field({
   );
 }
 
+const FluidTextArea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function FluidTextArea(
+  { className = "", onKeyDown, rows = 1, ...props },
+  ref,
+) {
+  return (
+    <textarea
+      {...props}
+      className={`fluid-text-control ${className}`.trim()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+        }
+        onKeyDown?.(event);
+      }}
+      ref={ref}
+      rows={rows}
+    />
+  );
+});
+
 function SectionHeader({
   eyebrow,
   title,
@@ -240,7 +265,7 @@ export default function InputPage() {
   const [saveState, setSaveState] = useState("불러오는 중");
   const [newFolderName, setNewFolderName] = useState("");
   const [parentFolderPath, setParentFolderPath] = useState("");
-  const folderNameInputRef = useRef<HTMLInputElement>(null);
+  const folderNameInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -439,7 +464,7 @@ export default function InputPage() {
             />
             <div className="field-grid field-grid-3">
               <Field label="프로젝트명" wide>
-                <input
+                <FluidTextArea
                   required
                   value={data.project.title}
                   onChange={(event) =>
@@ -448,7 +473,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="리포트 ID">
-                <input
+                <FluidTextArea
                   required
                   value={data.project.reportId}
                   onChange={(event) =>
@@ -469,7 +494,7 @@ export default function InputPage() {
                 </select>
               </Field>
               <Field label="촬영 회차">
-                <input
+                <FluidTextArea
                   required
                   value={data.project.shootDay}
                   onChange={(event) =>
@@ -488,7 +513,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="리포트 생성 시각">
-                <input
+                <FluidTextArea
                   value={data.project.createdAt}
                   onChange={(event) =>
                     updateProject("createdAt", event.target.value)
@@ -514,7 +539,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="감독">
-                <input
+                <FluidTextArea
                   required
                   value={data.project.director}
                   onChange={(event) =>
@@ -523,7 +548,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="촬영감독">
-                <input
+                <FluidTextArea
                   required
                   value={data.project.cinematographer}
                   onChange={(event) =>
@@ -532,14 +557,14 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="DIT / 데이터매니저">
-                <input
+                <FluidTextArea
                   required
                   value={data.project.dit}
                   onChange={(event) => updateProject("dit", event.target.value)}
                 />
               </Field>
               <Field label="프로덕션">
-                <input
+                <FluidTextArea
                   value={data.project.production}
                   onChange={(event) =>
                     updateProject("production", event.target.value)
@@ -547,7 +572,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="촬영 장소" wide>
-                <input
+                <FluidTextArea
                   required
                   value={data.project.location}
                   onChange={(event) =>
@@ -622,7 +647,7 @@ export default function InputPage() {
                           {String(index + 1).padStart(2, "0")}
                         </th>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 롤 이름`}
                             value={row.roll}
                             onChange={(event) =>
@@ -631,7 +656,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 롤 카메라`}
                             value={row.camera}
                             onChange={(event) =>
@@ -640,7 +665,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 롤 코덱과 해상도`}
                             value={row.codec}
                             onChange={(event) =>
@@ -649,7 +674,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 롤 카드`}
                             value={row.card}
                             onChange={(event) =>
@@ -672,7 +697,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 롤 체크섬`}
                             value={row.checksum}
                             onChange={(event) =>
@@ -683,7 +708,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 롤 상태`}
                             value={row.status}
                             onChange={(event) =>
@@ -705,7 +730,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 롤 메모`}
                             value={row.notes}
                             onChange={(event) =>
@@ -784,7 +809,7 @@ export default function InputPage() {
                           {String(index + 1).padStart(2, "0")}
                         </th>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 파일명`}
                             value={row.fileName}
                             onChange={(event) =>
@@ -795,7 +820,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 롤`}
                             value={row.roll}
                             onChange={(event) =>
@@ -804,7 +829,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 카메라`}
                             value={row.camera}
                             onChange={(event) =>
@@ -813,7 +838,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 씬`}
                             value={row.scene}
                             onChange={(event) =>
@@ -822,7 +847,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 컷`}
                             value={row.cut}
                             onChange={(event) =>
@@ -831,7 +856,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 테이크`}
                             value={row.take}
                             onChange={(event) =>
@@ -854,7 +879,7 @@ export default function InputPage() {
                           </select>
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 시작 타임코드`}
                             placeholder="00:00:00:00"
                             value={row.tcIn}
@@ -864,7 +889,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 종료 타임코드`}
                             placeholder="00:00:00:00"
                             value={row.tcOut}
@@ -874,7 +899,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 오디오 롤`}
                             value={row.audioRoll}
                             onChange={(event) =>
@@ -885,7 +910,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 클립 비고`}
                             value={row.notes}
                             onChange={(event) =>
@@ -969,7 +994,7 @@ export default function InputPage() {
                           {String(index + 1).padStart(2, "0")}
                         </th>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 저장매체 등급`}
                             value={row.grade}
                             onChange={(event) =>
@@ -980,7 +1005,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 저장매체 용도`}
                             value={row.purpose}
                             onChange={(event) =>
@@ -991,7 +1016,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 저장매체 이름`}
                             value={row.storage}
                             onChange={(event) =>
@@ -1002,7 +1027,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 저장매체 포맷`}
                             value={row.format}
                             onChange={(event) =>
@@ -1013,7 +1038,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 저장매체 경로`}
                             value={row.path}
                             onChange={(event) =>
@@ -1085,7 +1110,7 @@ export default function InputPage() {
                           {String(index + 1).padStart(2, "0")}
                         </th>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 QC 검사 항목`}
                             value={row.label}
                             onChange={(event) =>
@@ -1127,7 +1152,7 @@ export default function InputPage() {
                           </select>
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 QC 메모`}
                             value={row.note}
                             onChange={(event) =>
@@ -1191,7 +1216,7 @@ export default function InputPage() {
                           {String(index + 1).padStart(2, "0")}
                         </th>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 이슈 시간`}
                             value={row.time}
                             onChange={(event) =>
@@ -1215,7 +1240,7 @@ export default function InputPage() {
                           </select>
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 이슈 롤`}
                             value={row.roll}
                             onChange={(event) =>
@@ -1224,7 +1249,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 이슈 내용과 조치`}
                             value={row.detail}
                             onChange={(event) =>
@@ -1235,7 +1260,7 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <FluidTextArea
                             aria-label={`${index + 1}번째 이슈 상태`}
                             value={row.status}
                             onChange={(event) =>
@@ -1272,7 +1297,7 @@ export default function InputPage() {
             />
             <div className="field-grid field-grid-2">
               <Field label="인계 항목" wide>
-                <input
+                <FluidTextArea
                   value={data.handover.items}
                   onChange={(event) =>
                     setData((current) => ({
@@ -1286,7 +1311,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="인계 방식">
-                <input
+                <FluidTextArea
                   value={data.handover.method}
                   onChange={(event) =>
                     setData((current) => ({
@@ -1300,7 +1325,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="DIT / Data Manager">
-                <input
+                <FluidTextArea
                   value={data.handover.dataManager}
                   onChange={(event) =>
                     setData((current) => ({
@@ -1314,7 +1339,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="수령자">
-                <input
+                <FluidTextArea
                   value={data.handover.recipient}
                   onChange={(event) =>
                     setData((current) => ({
@@ -1328,7 +1353,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="인계 시각">
-                <input
+                <FluidTextArea
                   value={data.handover.time}
                   onChange={(event) =>
                     setData((current) => ({
@@ -1342,7 +1367,7 @@ export default function InputPage() {
                 />
               </Field>
               <Field label="수령 확인">
-                <input
+                <FluidTextArea
                   placeholder="서명 또는 확인 문구"
                   value={data.handover.confirmation}
                   onChange={(event) =>
@@ -1358,7 +1383,8 @@ export default function InputPage() {
               </Field>
               <Field label="인계 메모" wide>
                 <textarea
-                  rows={3}
+                  className="fluid-text-control fluid-text-control-multiline"
+                  rows={2}
                   value={data.handover.note}
                   onChange={(event) =>
                     setData((current) => ({
@@ -1384,7 +1410,7 @@ export default function InputPage() {
               <div className="folder-add-panel">
                 <label className="folder-add-name">
                   <span>새 폴더명</span>
-                  <input
+                  <FluidTextArea
                     ref={folderNameInputRef}
                     value={newFolderName}
                     placeholder="예: OCF, Proxy, Camera A"
@@ -1448,7 +1474,7 @@ export default function InputPage() {
                         <span className="folder-node-branch" aria-hidden="true">
                           {node.depth ? "└" : "●"}
                         </span>
-                        <input
+                        <FluidTextArea
                           aria-label={`${node.name} 폴더명`}
                           defaultValue={node.name}
                           onBlur={(event) => {
@@ -1503,7 +1529,7 @@ export default function InputPage() {
               </div>
             </div>
             <Field label="프록시 / Burn-in 메모">
-              <input
+              <FluidTextArea
                 value={data.proxyNote}
                 onChange={(event) =>
                   setData((current) => ({

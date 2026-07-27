@@ -60,6 +60,7 @@ test("wires Clip / Scene rows into the A4 detail report", async () => {
     "utf8",
   );
   assert.match(source, /CLIP_FALLBACK_ROWS_PER_PAGE\s*=\s*23/);
+  assert.match(source, /SCENE_COVERAGE_ROWS_PER_PAGE\s*=\s*20/);
   assert.match(source, /pageSizesFromHeights/);
   assert.match(source, /data-clip-measure-row/);
   assert.match(source, /className="clip-measure-page"/);
@@ -68,6 +69,31 @@ test("wires Clip / Scene rows into the A4 detail report", async () => {
   assert.match(source, /sceneCoverageChunks\.map/);
   assert.match(source, /className="coverage-page"/);
   assert.match(source, /씬 커버리지/);
+});
+
+test("uses fluid-width two-line fields in input and print tables", async () => {
+  const inputSource = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const reportSource = await readFile(
+    new URL("../app/report/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(inputSource, /const FluidTextArea = forwardRef/);
+  assert.match(inputSource, /className={`fluid-text-control/);
+  assert.match(reportSource, /function PrintValue/);
+  assert.match(reportSource, /className={`print-fluid-text/);
+  assert.match(css, /\.sheet-table\s*\{[^}]*table-layout:\s*auto/s);
+  assert.match(css, /\.sheet-table\s*\{[^}]*width:\s*max-content/s);
+  assert.match(css, /\.fluid-text-control\s*\{[^}]*field-sizing:\s*content/s);
+  assert.match(css, /\.print-fluid-text\s*\{[^}]*-webkit-line-clamp:\s*2/s);
+  assert.match(css, /--cell-max:\s*280px/);
 });
 
 test("declares A4 print output rules", async () => {
