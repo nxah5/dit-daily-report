@@ -1,13 +1,23 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { ReactNode, Ref } from "react";
 import Link from "next/link";
 import {
   getReportMetrics,
   initialReportData,
   loadReportData,
-  ReportData,
 } from "../report-data";
+import type { ClipLog, ReportData } from "../report-data";
+
+const CLIP_FALLBACK_ROWS_PER_PAGE = 23;
+const SCENE_COVERAGE_ROWS_PER_PAGE = 23;
 
 function chunk<T>(rows: T[], size: number): T[][] {
   if (rows.length === 0) return [[]];
@@ -16,6 +26,28 @@ function chunk<T>(rows: T[], size: number): T[][] {
     chunks.push(rows.slice(index, index + size));
   }
   return chunks;
+}
+
+function pageSizesFromHeights(rowHeights: number[], availableHeight: number) {
+  const pageSizes: number[] = [];
+  let currentHeight = 0;
+  let currentSize = 0;
+
+  rowHeights.forEach((rowHeight) => {
+    if (
+      currentSize > 0 &&
+      currentHeight + rowHeight > availableHeight
+    ) {
+      pageSizes.push(currentSize);
+      currentHeight = 0;
+      currentSize = 0;
+    }
+    currentHeight += rowHeight;
+    currentSize += 1;
+  });
+
+  if (currentSize > 0) pageSizes.push(currentSize);
+  return pageSizes;
 }
 
 function statusTone(value: string) {
@@ -52,6 +84,7 @@ function Page({
   title,
   children,
   className = "",
+  contentRef,
 }: {
   data: ReportData;
   pageNumber: number;
@@ -60,6 +93,7 @@ function Page({
   title: string;
   children: ReactNode;
   className?: string;
+  contentRef?: Ref<HTMLDivElement>;
 }) {
   return (
     <section className={`report-page ${className}`}>
@@ -73,7 +107,9 @@ function Page({
           <strong>{data.project.shootDay}</strong>
         </div>
       </header>
-      <div className="print-content">{children}</div>
+      <div className="print-content" ref={contentRef}>
+        {children}
+      </div>
       <footer className="print-footer">
         <span>DIT DAILY REPORT · {data.project.reportId}</span>
         <span>
@@ -82,6 +118,58 @@ function Page({
         </span>
       </footer>
     </section>
+  );
+}
+
+function ClipTable({
+  rows,
+  measurement = false,
+}: {
+  rows: ClipLog[];
+  measurement?: boolean;
+}) {
+  return (
+    <table className="print-table clip-table">
+      <thead>
+        <tr>
+          <th>Clip File Name</th>
+          <th>Roll</th>
+          <th>Cam</th>
+          <th>Scene</th>
+          <th>Cut</th>
+          <th>Take</th>
+          <th>OK/NG</th>
+          <th>TC In</th>
+          <th>TC Out</th>
+          <th>Audio</th>
+          <th>비고</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((clip, index) => (
+          <tr
+            data-clip-measure-row={measurement ? "true" : undefined}
+            key={`${clip.fileName}-${clip.roll}-${index}`}
+          >
+            <td>{clip.fileName || "—"}</td>
+            <td>{clip.roll || "—"}</td>
+            <td>{clip.camera || "—"}</td>
+            <td>{clip.scene || "—"}</td>
+            <td>{clip.cut || "—"}</td>
+            <td>{clip.take || "—"}</td>
+            <td>
+              <strong className={statusTone(clip.result)}>
+                {clip.result}
+              </strong>
+            </td>
+            <td>{clip.tcIn || "—"}</td>
+            <td>{clip.tcOut || "—"}</td>
+            <td>{clip.audioRoll || "—"}</td>
+            <td>{clip.notes || "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -125,6 +213,8 @@ function SectionTitle({
 
 export default function ReportPage() {
   const [data, setData] = useState<ReportData>(initialReportData);
+  const [clipPageSizes, setClipPageSizes] = useState<number[]>([]);
+  const clipMeasureContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setData(loadReportData()), 0);
@@ -133,7 +223,24 @@ export default function ReportPage() {
 
   const metrics = useMemo(() => getReportMetrics(data), [data]);
   const rollChunks = useMemo(() => chunk(data.rolls, 12), [data.rolls]);
-  const clipChunks = useMemo(() => chunk(data.clips, 14), [data.clips]);
+  const clipChunks = useMemo(() => {
+    if (data.clips.length === 0) return [];
+
+    const measuredRows = clipPageSizes.reduce(
+      (total, size) => total + size,
+      0,
+    );
+    if (measuredRows !== data.clips.length) {
+      return chunk(data.clips, CLIP_FALLBACK_ROWS_PER_PAGE);
+    }
+
+    let offset = 0;
+    return clipPageSizes.map((size) => {
+      const rows = data.clips.slice(offset, offset + size);
+      offset += size;
+      return rows;
+    });
+  }, [clipPageSizes, data.clips]);
   const storageChunks = useMemo(
     () => chunk(data.storage, 13),
     [data.storage],
@@ -163,6 +270,58 @@ export default function ReportPage() {
     });
     return [...scenes.values()];
   }, [data.clips]);
+  const sceneCoverageChunks = useMemo(
+    () =>
+      sceneCoverage.length
+        ? chunk(sceneCoverage, SCENE_COVERAGE_ROWS_PER_PAGE)
+        : [],
+    [sceneCoverage],
+  );
+
+  useLayoutEffect(() => {
+    const content = clipMeasureContentRef.current;
+    if (!content || data.clips.length === 0) {
+      setClipPageSizes((current) => (current.length ? [] : current));
+      return;
+    }
+
+    let cancelled = false;
+    const measure = () => {
+      if (cancelled) return;
+      const tableHeader = content.querySelector("thead");
+      const rows = Array.from(
+        content.querySelectorAll<HTMLTableRowElement>(
+          "[data-clip-measure-row]",
+        ),
+      );
+      if (!tableHeader || rows.length !== data.clips.length) return;
+
+      const availableHeight =
+        content.getBoundingClientRect().bottom -
+        tableHeader.getBoundingClientRect().bottom -
+        2;
+      if (availableHeight <= 0) return;
+
+      const nextPageSizes = pageSizesFromHeights(
+        rows.map((row) => row.getBoundingClientRect().height),
+        availableHeight,
+      );
+      setClipPageSizes((current) =>
+        current.length === nextPageSizes.length &&
+        current.every((size, index) => size === nextPageSizes[index])
+          ? current
+          : nextPageSizes,
+      );
+    };
+
+    measure();
+    void document.fonts?.ready.then(measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", measure);
+    };
+  }, [data.clips]);
 
   const passedQc = data.qc.filter((item) =>
     ["OK", "PASS"].includes(item.status),
@@ -175,12 +334,15 @@ export default function ReportPage() {
     2 +
     rollChunks.length +
     clipChunks.length +
+    sceneCoverageChunks.length +
     storageChunks.length +
     2 +
     folderChunks.length;
   const rollPageStart = 3;
   const clipPageStart = rollPageStart + rollChunks.length;
-  const storagePageStart = clipPageStart + clipChunks.length;
+  const sceneCoveragePageStart = clipPageStart + clipChunks.length;
+  const storagePageStart =
+    sceneCoveragePageStart + sceneCoverageChunks.length;
   const qcPageNumber = storagePageStart + storageChunks.length;
   const handoverPageNumber = qcPageNumber + 1;
   const folderPageStart = handoverPageNumber + 1;
@@ -220,6 +382,26 @@ export default function ReportPage() {
           </button>
         </div>
       </div>
+
+      {data.clips.length ? (
+        <Page
+          className="clip-measure-page"
+          contentRef={clipMeasureContentRef}
+          data={data}
+          pageNumber={0}
+          totalPages={0}
+          section="DETAIL 02"
+          title="클립 · 씬"
+        >
+          <SectionTitle
+            number="02"
+            eyebrow="CLIP / SCENE"
+            title="클립 · 씬 매핑"
+            description="클립별 씬·컷·테이크와 타임코드"
+          />
+          <ClipTable rows={data.clips} measurement />
+        </Page>
+      ) : null}
 
       <div className="report-pages" aria-label="A4 출력 미리보기">
         <section className="report-page cover-page">
@@ -514,84 +696,59 @@ export default function ReportPage() {
                     : ""
                 }`}
               />
-              <table className="print-table clip-table">
-                <thead>
-                  <tr>
-                    <th>Clip File Name</th>
-                    <th>Roll</th>
-                    <th>Cam</th>
-                    <th>Scene</th>
-                    <th>Cut</th>
-                    <th>Take</th>
-                    <th>OK/NG</th>
-                    <th>TC In</th>
-                    <th>TC Out</th>
-                    <th>Audio</th>
-                    <th>비고</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((clip, index) => (
-                    <tr key={`${clip.fileName}-${index}`}>
-                      <td>{clip.fileName || "—"}</td>
-                      <td>{clip.roll || "—"}</td>
-                      <td>{clip.camera || "—"}</td>
-                      <td>{clip.scene || "—"}</td>
-                      <td>{clip.cut || "—"}</td>
-                      <td>{clip.take || "—"}</td>
-                      <td>
-                        <strong className={statusTone(clip.result)}>
-                          {clip.result}
-                        </strong>
-                      </td>
-                      <td>{clip.tcIn || "—"}</td>
-                      <td>{clip.tcOut || "—"}</td>
-                      <td>{clip.audioRoll || "—"}</td>
-                      <td>{clip.notes || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {chunkIndex === clipChunks.length - 1 ? (
-                <div className="coverage-block">
-                  <div className="card-heading">
-                    <span>AUTO SUMMARY</span>
-                    <strong>씬 커버리지</strong>
-                  </div>
-                  <table className="print-table coverage-table">
-                    <thead>
-                      <tr>
-                        <th>Scene</th>
-                        <th>테이크</th>
-                        <th>OK</th>
-                        <th>NG</th>
-                        <th>OK 존재?</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sceneCoverage.map((scene) => (
-                        <tr key={scene.scene}>
-                          <td>{scene.scene}</td>
-                          <td>{scene.takes}</td>
-                          <td>{scene.ok}</td>
-                          <td>{scene.ng}</td>
-                          <td>
-                            <strong
-                              className={scene.ok ? "tone-good" : "tone-bad"}
-                            >
-                              {scene.ok ? "OK 확보" : "확인 필요"}
-                            </strong>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
+              <ClipTable rows={rows} />
             </Page>
           );
         })}
+
+        {sceneCoverageChunks.map((scenes, chunkIndex) => (
+          <Page
+            className="coverage-page"
+            data={data}
+            pageNumber={sceneCoveragePageStart + chunkIndex}
+            totalPages={totalPages}
+            section="DETAIL 02"
+            title="씬 커버리지"
+            key={`coverage-page-${chunkIndex}`}
+          >
+            <SectionTitle
+              number="02"
+              eyebrow="CLIP / SCENE SUMMARY"
+              title="씬 커버리지"
+              description={`씬별 테이크와 OK 확보 현황${
+                sceneCoverageChunks.length > 1
+                  ? ` · ${chunkIndex + 1}/${sceneCoverageChunks.length}`
+                  : ""
+              }`}
+            />
+            <table className="print-table coverage-table">
+              <thead>
+                <tr>
+                  <th>Scene</th>
+                  <th>테이크</th>
+                  <th>OK</th>
+                  <th>NG</th>
+                  <th>OK 존재?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scenes.map((scene) => (
+                  <tr key={scene.scene}>
+                    <td>{scene.scene}</td>
+                    <td>{scene.takes}</td>
+                    <td>{scene.ok}</td>
+                    <td>{scene.ng}</td>
+                    <td>
+                      <strong className={scene.ok ? "tone-good" : "tone-bad"}>
+                        {scene.ok ? "OK 확보" : "확인 필요"}
+                      </strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Page>
+        ))}
 
         {storageChunks.map((rows, chunkIndex) => {
           return (

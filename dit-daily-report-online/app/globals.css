@@ -1134,6 +1134,16 @@ button {
   width: 210mm;
 }
 
+.clip-measure-page {
+  box-shadow: none;
+  left: -10000px;
+  margin: 0;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  visibility: hidden;
+}
+
 .print-header {
   align-items: flex-end;
   border-bottom: 0.45mm solid #17233c;
@@ -1685,20 +1695,22 @@ button {
   width: 17mm;
 }
 
-.coverage-block {
-  border-top: 0.4mm solid #17233c;
-  margin-top: 8mm;
-  padding-top: 4mm;
-}
-
 .coverage-table {
-  margin-top: 3mm;
-  width: 95mm;
+  width: 100%;
 }
 
 .coverage-table th,
 .coverage-table td {
   text-align: center;
+}
+
+.coverage-table th:first-child {
+  text-align: left;
+  width: 45%;
+}
+
+.coverage-table td:first-child {
+  text-align: left;
 }
 
 .storage-table th:nth-child(1) {
@@ -2088,6 +2100,10 @@ button {
   }
 
   .report-toolbar {
+    display: none !important;
+  }
+
+  .clip-measure-page {
     display: none !important;
   }
 

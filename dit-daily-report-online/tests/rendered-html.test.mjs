@@ -59,9 +59,14 @@ test("wires Clip / Scene rows into the A4 detail report", async () => {
     new URL("../app/report/page.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /chunk\(data\.clips,\s*14\)/);
+  assert.match(source, /CLIP_FALLBACK_ROWS_PER_PAGE\s*=\s*23/);
+  assert.match(source, /pageSizesFromHeights/);
+  assert.match(source, /data-clip-measure-row/);
+  assert.match(source, /className="clip-measure-page"/);
   assert.match(source, /className="print-table clip-table"/);
   assert.match(source, /title="클립 · 씬 매핑"/);
+  assert.match(source, /sceneCoverageChunks\.map/);
+  assert.match(source, /className="coverage-page"/);
   assert.match(source, /씬 커버리지/);
 });
 
