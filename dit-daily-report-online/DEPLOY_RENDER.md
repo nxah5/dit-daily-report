@@ -46,6 +46,10 @@ Root Directory가 지정되어 있으므로 Dockerfile Path와 Docker Build Cont
 
 별도의 API 키나 Registry Credential은 필요하지 않습니다.
 
+Docker 이미지는 빌드 단계와 실행 단계를 분리합니다. 실행 단계에는 pnpm,
+빌드 도구, 데이터베이스 예제가 포함되지 않으며 독립 실행 서버만 시작됩니다.
+Render의 Docker Command에는 별도 명령을 입력하지 마세요.
+
 ## 3. 업데이트
 
 수정된 `dit-daily-report-online` 폴더를 같은 GitHub 저장소의 `main`

@@ -19,7 +19,7 @@
 Node.js 22.13 이상이 필요합니다.
 
 ```bash
-corepack enable
+npm install --global pnpm@11.9.0
 pnpm install
 pnpm run dev
 ```
@@ -41,6 +41,8 @@ GitHub 저장소 최상위에 업로드합니다. Render의 Root Directory 설�
 ## Render 배포
 
 현재 Render 서비스의 Docker 설정에 맞춘 `Dockerfile`이 포함되어 있습니다.
+배포 컨테이너에는 전체 개발 도구 대신 독립 실행 서버와 필요한 파일만
+포함되며, Node.js 메모리 상한도 Render 무료 인스턴스에 맞게 설정됩니다.
 
 1. Root Directory를 `dit-daily-report-online`로 지정합니다.
 2. Dockerfile Path를 `./Dockerfile`로 지정합니다.

@@ -77,15 +77,38 @@ test("ships with an empty project data set", async () => {
   assert.match(source, /"Ready"[\s\S]*"Hold"[\s\S]*"Pending"/);
 });
 
-test("Docker build installs pnpm without Corepack signature verification", async () => {
+test("Docker build uses a lightweight standalone runtime", async () => {
   const dockerfile = await readFile(
     new URL("../Dockerfile", import.meta.url),
     "utf8",
   );
   assert.match(dockerfile, /npm install --global pnpm@11\.9\.0/);
   assert.doesNotMatch(dockerfile, /corepack/);
+  assert.match(dockerfile, /FROM node:22\.13\.0-bookworm-slim AS builder/);
+  assert.match(dockerfile, /FROM node:22\.13\.0-bookworm-slim AS runtime/);
+  assert.match(
+    dockerfile,
+    /COPY --from=builder \/app\/dist\/standalone \.\//,
+  );
   assert.match(dockerfile, /HOST="0\.0\.0\.0"/);
-  assert.match(dockerfile, /CMD \["pnpm", "run", "start"\]/);
+  assert.match(dockerfile, /NODE_OPTIONS="--max-old-space-size=256"/);
+  assert.match(dockerfile, /CMD \["node", "server\.js"\]/);
+  assert.doesNotMatch(dockerfile, /CMD \["pnpm"/);
+});
+
+test("vinext emits a standalone Render server", async () => {
+  const nextConfig = await readFile(
+    new URL("../next.config.ts", import.meta.url),
+    "utf8",
+  );
+  const packageJson = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  );
+  assert.match(nextConfig, /output:\s*"standalone"/);
+  assert.equal(packageJson.scripts.start, "node dist/standalone/server.js");
+  assert.equal(packageJson.dependencies["drizzle-orm"], undefined);
+  assert.equal(packageJson.devDependencies["drizzle-kit"], undefined);
+  assert.equal(packageJson.devDependencies.tailwindcss, undefined);
 });
 
 test("Render build does not require the local Sites hosting file", async () => {
