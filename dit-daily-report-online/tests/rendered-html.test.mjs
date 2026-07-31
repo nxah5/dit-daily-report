@@ -33,6 +33,10 @@ test("renders the DIT input page", async () => {
   assert.match(html, /오늘의 촬영 데이터를 정리하세요/);
   assert.match(html, /미디어 롤/);
   assert.match(html, /sheet-table roll-sheet/);
+  assert.match(html, /sheet-table onset-sheet/);
+  assert.match(html, /ON-SET/);
+  assert.match(html, /Codec \/ Resolution/);
+  assert.match(html, /Color Space/);
   assert.match(html, /sheet-table clip-sheet/);
   assert.match(html, /sheet-table storage-sheet/);
   assert.match(html, /sheet-table qc-sheet/);
@@ -50,6 +54,8 @@ test("renders the separate A4 report page", async () => {
   const html = await response.text();
   assert.match(html, /Digital Imaging Technician Daily Report/);
   assert.match(html, /전체 요약/);
+  assert.match(html, /ON-SET CAMERA SETTINGS/);
+  assert.match(html, /camera-setup-table/);
   assert.match(html, /씬 커버리지/);
   assert.match(html, /인쇄 \/ PDF 저장/);
 });
@@ -114,6 +120,7 @@ test("ships with an empty project data set", async () => {
   );
   assert.match(source, /STORAGE_KEY\s*=\s*"dit-daily-report-v2"/);
   assert.match(source, /rolls:\s*\[\]/);
+  assert.match(source, /cameraSetups:\s*\[\]/);
   assert.match(source, /clips:\s*\[\]/);
   assert.match(source, /storage:\s*\[\]/);
   assert.match(source, /issues:\s*\[\]/);
@@ -122,6 +129,14 @@ test("ships with an empty project data set", async () => {
   assert.match(
     source,
     /emptyClip[\s\S]*fileName:[\s\S]*scene:[\s\S]*result:\s*"OK"/,
+  );
+  assert.match(
+    source,
+    /emptyCameraSetup[\s\S]*camera:\s*""[\s\S]*body:\s*""[\s\S]*codecResolution:\s*""[\s\S]*fps:\s*""[\s\S]*colorSpace:\s*""[\s\S]*lut:\s*""/,
+  );
+  assert.doesNotMatch(
+    source,
+    /Arri Alexa Mini|Sony FX3|Apple Prores 4444|S-Log3 to Rec\.709/i,
   );
 });
 

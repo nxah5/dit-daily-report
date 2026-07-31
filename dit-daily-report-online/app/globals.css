@@ -773,6 +773,45 @@ button {
   --cell-min: 140px;
 }
 
+.onset-sheet {
+  min-width: 940px;
+}
+
+.onset-sheet :is(th, td):nth-child(2) {
+  --cell-max: 150px;
+  --cell-min: 90px;
+}
+
+.onset-sheet :is(th, td):nth-child(3) {
+  --cell-max: 240px;
+  --cell-min: 140px;
+}
+
+.onset-sheet :is(th, td):nth-child(4) {
+  --cell-max: 340px;
+  --cell-min: 190px;
+}
+
+.onset-sheet :is(th, td):nth-child(5) {
+  --cell-max: 90px;
+  --cell-min: 60px;
+}
+
+.onset-sheet :is(th, td):nth-child(6),
+.onset-sheet :is(th, td):nth-child(7) {
+  --cell-max: 280px;
+  --cell-min: 160px;
+}
+
+.sheet-empty-state {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 18px 16px;
+  text-align: center;
+}
+
 .clip-sheet {
   min-width: 1080px;
 }
@@ -1750,6 +1789,39 @@ button {
 .roll-table :is(th, td):nth-child(9) {
   max-width: 42mm;
   min-width: 20mm;
+}
+
+.camera-setup-table :is(th, td):nth-child(1) {
+  max-width: 24mm;
+  min-width: 18mm;
+}
+
+.camera-setup-table :is(th, td):nth-child(2) {
+  max-width: 38mm;
+  min-width: 28mm;
+}
+
+.camera-setup-table :is(th, td):nth-child(3) {
+  max-width: 60mm;
+  min-width: 45mm;
+}
+
+.camera-setup-table :is(th, td):nth-child(4) {
+  max-width: 16mm;
+  min-width: 12mm;
+}
+
+.camera-setup-table :is(th, td):nth-child(5),
+.camera-setup-table :is(th, td):nth-child(6) {
+  max-width: 48mm;
+  min-width: 35mm;
+}
+
+.print-empty-table {
+  color: #7d8796;
+  font-size: 7pt;
+  margin: 7mm 0 0;
+  text-align: center;
 }
 
 .print-note {

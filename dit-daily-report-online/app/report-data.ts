@@ -21,6 +21,15 @@ export type RollLog = {
   notes: string;
 };
 
+export type CameraSetup = {
+  camera: string;
+  body: string;
+  codecResolution: string;
+  fps: string;
+  colorSpace: string;
+  lut: string;
+};
+
 export type ClipLog = {
   fileName: string;
   roll: string;
@@ -75,6 +84,7 @@ export type ReportData = {
     location: string;
   };
   rolls: RollLog[];
+  cameraSetups: CameraSetup[];
   clips: ClipLog[];
   storage: StorageLog[];
   qc: QcItem[];
@@ -111,6 +121,7 @@ export const initialReportData: ReportData = {
     location: "",
   },
   rolls: [],
+  cameraSetups: [],
   clips: [],
   storage: [],
   qc: [
@@ -171,6 +182,15 @@ export const emptyRoll = (): RollLog => ({
   notes: "",
 });
 
+export const emptyCameraSetup = (): CameraSetup => ({
+  camera: "",
+  body: "",
+  codecResolution: "",
+  fps: "",
+  colorSpace: "",
+  lut: "",
+});
+
 export const emptyClip = (): ClipLog => ({
   fileName: "",
   roll: "",
@@ -229,6 +249,12 @@ export function loadReportData(): ReportData {
       project: { ...initialReportData.project, ...parsed.project },
       handover: { ...initialReportData.handover, ...parsed.handover },
       rolls: Array.isArray(parsed.rolls) ? parsed.rolls : cloneInitial().rolls,
+      cameraSetups: Array.isArray(parsed.cameraSetups)
+        ? parsed.cameraSetups.map((row) => ({
+            ...emptyCameraSetup(),
+            ...row,
+          }))
+        : cloneInitial().cameraSetups,
       clips: Array.isArray(parsed.clips)
         ? parsed.clips.map((row) => ({
             ...emptyClip(),

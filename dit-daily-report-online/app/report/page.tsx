@@ -14,10 +14,11 @@ import {
   initialReportData,
   loadReportData,
 } from "../report-data";
-import type { ClipLog, ReportData } from "../report-data";
+import type { CameraSetup, ClipLog, ReportData } from "../report-data";
 
 const CLIP_FALLBACK_ROWS_PER_PAGE = 23;
 const SCENE_COVERAGE_ROWS_PER_PAGE = 20;
+const CAMERA_SETUP_ROWS_PER_PAGE = 16;
 
 function chunk<T>(rows: T[], size: number): T[][] {
   if (rows.length === 0) return [[]];
@@ -191,6 +192,35 @@ function ClipTable({
   );
 }
 
+function CameraSetupTable({ rows }: { rows: CameraSetup[] }) {
+  return (
+    <table className="print-table camera-setup-table">
+      <thead>
+        <tr>
+          <th>Camera</th>
+          <th>Body</th>
+          <th>Codec / Resolution</th>
+          <th>FPS</th>
+          <th>Color Space</th>
+          <th>LUT</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr key={`${row.camera}-${row.body}-${index}`}>
+            <td><PrintValue>{row.camera}</PrintValue></td>
+            <td><PrintValue>{row.body}</PrintValue></td>
+            <td><PrintValue>{row.codecResolution}</PrintValue></td>
+            <td><PrintValue>{row.fps}</PrintValue></td>
+            <td><PrintValue>{row.colorSpace}</PrintValue></td>
+            <td><PrintValue>{row.lut}</PrintValue></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function InfoRow({
   label,
   value,
@@ -241,6 +271,10 @@ export default function ReportPage() {
 
   const metrics = useMemo(() => getReportMetrics(data), [data]);
   const rollChunks = useMemo(() => chunk(data.rolls, 12), [data.rolls]);
+  const cameraSetupChunks = useMemo(
+    () => chunk(data.cameraSetups, CAMERA_SETUP_ROWS_PER_PAGE),
+    [data.cameraSetups],
+  );
   const clipChunks = useMemo(() => {
     if (data.clips.length === 0) return [];
 
@@ -351,13 +385,16 @@ export default function ReportPage() {
   const totalPages =
     2 +
     rollChunks.length +
+    cameraSetupChunks.length +
     clipChunks.length +
     sceneCoverageChunks.length +
     storageChunks.length +
     2 +
     folderChunks.length;
   const rollPageStart = 3;
-  const clipPageStart = rollPageStart + rollChunks.length;
+  const cameraSetupPageStart = rollPageStart + rollChunks.length;
+  const clipPageStart =
+    cameraSetupPageStart + cameraSetupChunks.length;
   const sceneCoveragePageStart = clipPageStart + clipChunks.length;
   const storagePageStart =
     sceneCoveragePageStart + sceneCoverageChunks.length;
@@ -408,11 +445,11 @@ export default function ReportPage() {
           data={data}
           pageNumber={0}
           totalPages={0}
-          section="DETAIL 02"
+          section="DETAIL 03"
           title="클립 · 씬"
         >
           <SectionTitle
-            number="02"
+            number="03"
             eyebrow="CLIP / SCENE"
             title="클립 · 씬 매핑"
             description="클립별 씬·컷·테이크와 타임코드"
@@ -520,6 +557,30 @@ export default function ReportPage() {
                 <InfoRow label="DIT" value={data.project.dit} />
                 <InfoRow label="프로덕션" value={data.project.production} />
               </div>
+            </section>
+
+            <section className="summary-card">
+              <div className="card-heading">
+                <span>ON-SET</span>
+                <strong>카메라 세팅</strong>
+              </div>
+              <div className="summary-bigline">
+                <strong>{data.cameraSetups.length}</strong>
+                <span>대</span>
+              </div>
+              <p>
+                {data.cameraSetups.length
+                  ? data.cameraSetups
+                      .slice(0, 2)
+                      .map(
+                        (camera) =>
+                          `${camera.camera || "카메라"} · ${
+                            camera.body || "바디 미입력"
+                          }`,
+                      )
+                      .join(" / ")
+                  : "카메라 세팅 미입력"}
+              </p>
             </section>
 
             <section className="summary-card">
@@ -700,18 +761,46 @@ export default function ReportPage() {
           );
         })}
 
+        {cameraSetupChunks.map((rows, chunkIndex) => (
+          <Page
+            data={data}
+            pageNumber={cameraSetupPageStart + chunkIndex}
+            totalPages={totalPages}
+            section="DETAIL 02"
+            title="ON-SET"
+            key={`camera-setup-page-${chunkIndex}`}
+          >
+            <SectionTitle
+              number="02"
+              eyebrow="ON-SET CAMERA SETTINGS"
+              title="카메라 세팅"
+              description={`바디, 기록 포맷, 프레임레이트, 색공간과 LUT${
+                cameraSetupChunks.length > 1
+                  ? ` · ${chunkIndex + 1}/${cameraSetupChunks.length}`
+                  : ""
+              }`}
+            />
+            <CameraSetupTable rows={rows} />
+            {data.cameraSetups.length === 0 ? (
+              <p className="print-empty-table">
+                등록된 카메라 세팅이 없습니다.
+              </p>
+            ) : null}
+          </Page>
+        ))}
+
         {clipChunks.map((rows, chunkIndex) => {
           return (
             <Page
               data={data}
               pageNumber={clipPageStart + chunkIndex}
               totalPages={totalPages}
-              section="DETAIL 02"
+              section="DETAIL 03"
               title="클립 · 씬"
               key={`clip-page-${chunkIndex}`}
             >
               <SectionTitle
-                number="02"
+                number="03"
                 eyebrow="CLIP / SCENE"
                 title="클립 · 씬 매핑"
                 description={`클립별 씬·컷·테이크와 타임코드${
@@ -731,12 +820,12 @@ export default function ReportPage() {
             data={data}
             pageNumber={sceneCoveragePageStart + chunkIndex}
             totalPages={totalPages}
-            section="DETAIL 02"
+            section="DETAIL 03"
             title="씬 커버리지"
             key={`coverage-page-${chunkIndex}`}
           >
             <SectionTitle
-              number="02"
+              number="03"
               eyebrow="CLIP / SCENE SUMMARY"
               title="씬 커버리지"
               description={`씬별 테이크와 OK 확보 현황${
@@ -782,12 +871,12 @@ export default function ReportPage() {
               data={data}
               pageNumber={storagePageStart + chunkIndex}
               totalPages={totalPages}
-              section="DETAIL 03"
+              section="DETAIL 04"
               title="저장매체"
               key={`storage-page-${chunkIndex}`}
             >
               <SectionTitle
-                number="03"
+                number="04"
                 eyebrow="STORAGE"
                 title="백업 저장매체"
                 description={`사본 등급, 포맷, 경로와 준비 상태${
@@ -863,11 +952,11 @@ export default function ReportPage() {
           data={data}
           pageNumber={qcPageNumber}
           totalPages={totalPages}
-          section="DETAIL 04"
+          section="DETAIL 05"
           title="QC · 이슈"
         >
           <SectionTitle
-            number="04"
+            number="05"
             eyebrow="QUALITY CONTROL"
             title="QC 체크리스트 · 이슈 로그"
             description="검증 결과와 후속 조치가 필요한 항목"
@@ -921,11 +1010,11 @@ export default function ReportPage() {
           data={data}
           pageNumber={handoverPageNumber}
           totalPages={totalPages}
-          section="DETAIL 05"
+          section="DETAIL 06"
           title="인계"
         >
           <SectionTitle
-            number="05"
+            number="06"
             eyebrow="HANDOVER"
             title="데이터 인계"
             description="전달 항목, 수령자와 확인 기록"
@@ -970,12 +1059,12 @@ export default function ReportPage() {
               data={data}
               pageNumber={folderPageStart + chunkIndex}
               totalPages={totalPages}
-              section="DETAIL 06"
+              section="DETAIL 07"
               title="폴더트리"
               key={`folder-page-${chunkIndex}`}
             >
               <SectionTitle
-                number="06"
+                number="07"
                 eyebrow="FILE TREE"
                 title={`파일 트리 구조 · ${data.project.shootDay}`}
                 description={`백업 후 위치 변경 금지${

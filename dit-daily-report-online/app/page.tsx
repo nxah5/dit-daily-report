@@ -13,7 +13,9 @@ import {
 } from "react";
 import Link from "next/link";
 import {
+  CameraSetup,
   ClipLog,
+  emptyCameraSetup,
   emptyClip,
   emptyIssue,
   emptyRoll,
@@ -33,11 +35,12 @@ import {
 const sections = [
   ["basic", "01", "기본 정보"],
   ["rolls", "02", "미디어 롤"],
-  ["clips", "03", "클립 · 씬"],
-  ["storage", "04", "저장매체"],
-  ["qc", "05", "QC · 이슈"],
-  ["handover", "06", "인계"],
-  ["folder", "07", "폴더트리"],
+  ["onset", "03", "ON-SET"],
+  ["clips", "04", "클립 · 씬"],
+  ["storage", "05", "저장매체"],
+  ["qc", "06", "QC · 이슈"],
+  ["handover", "07", "인계"],
+  ["folder", "08", "폴더트리"],
 ] as const;
 
 type FolderNode = {
@@ -324,6 +327,18 @@ export default function InputPage() {
     setData((current) => ({
       ...current,
       rolls: current.rolls.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...patch } : row,
+      ),
+    }));
+  };
+
+  const updateCameraSetup = (
+    index: number,
+    patch: Partial<CameraSetup>,
+  ) => {
+    setData((current) => ({
+      ...current,
+      cameraSetups: current.cameraSetups.map((row, rowIndex) =>
         rowIndex === index ? { ...row, ...patch } : row,
       ),
     }));
@@ -759,9 +774,149 @@ export default function InputPage() {
             </div>
           </section>
 
+          <section className="form-card" id="onset">
+            <SectionHeader
+              eyebrow="03 · ON-SET"
+              title="카메라 세팅"
+              description="촬영에 사용한 카메라 바디, 기록 포맷, 프레임레이트, 색공간과 모니터링 LUT를 기록합니다."
+              action={
+                <button
+                  className="button button-ghost"
+                  type="button"
+                  onClick={() =>
+                    setData((current) => ({
+                      ...current,
+                      cameraSetups: [
+                        ...current.cameraSetups,
+                        emptyCameraSetup(),
+                      ],
+                    }))
+                  }
+                >
+                  + 카메라 추가
+                </button>
+              }
+            />
+            <div className="sheet-editor">
+              <div className="sheet-scroll">
+                <table className="sheet-table onset-sheet">
+                  <caption className="sr-only">ON-SET 카메라 세팅 기록</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Camera</th>
+                      <th scope="col">Body</th>
+                      <th scope="col">Codec / Resolution</th>
+                      <th scope="col">FPS</th>
+                      <th scope="col">Color Space</th>
+                      <th scope="col">LUT</th>
+                      <th scope="col">
+                        <span className="sr-only">삭제</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.cameraSetups.map((row, index) => (
+                      <tr key={`camera-setup-${index}`}>
+                        <th className="sheet-row-number" scope="row">
+                          {String(index + 1).padStart(2, "0")}
+                        </th>
+                        <td>
+                          <FluidTextArea
+                            aria-label={`${index + 1}번째 카메라 구분`}
+                            value={row.camera}
+                            onChange={(event) =>
+                              updateCameraSetup(index, {
+                                camera: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <FluidTextArea
+                            aria-label={`${index + 1}번째 카메라 바디`}
+                            value={row.body}
+                            onChange={(event) =>
+                              updateCameraSetup(index, {
+                                body: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <FluidTextArea
+                            aria-label={`${index + 1}번째 코덱과 해상도`}
+                            value={row.codecResolution}
+                            onChange={(event) =>
+                              updateCameraSetup(index, {
+                                codecResolution: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <FluidTextArea
+                            aria-label={`${index + 1}번째 FPS`}
+                            value={row.fps}
+                            onChange={(event) =>
+                              updateCameraSetup(index, {
+                                fps: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <FluidTextArea
+                            aria-label={`${index + 1}번째 색공간`}
+                            value={row.colorSpace}
+                            onChange={(event) =>
+                              updateCameraSetup(index, {
+                                colorSpace: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <FluidTextArea
+                            aria-label={`${index + 1}번째 LUT`}
+                            value={row.lut}
+                            onChange={(event) =>
+                              updateCameraSetup(index, {
+                                lut: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="sheet-delete-cell">
+                          <RemoveButton
+                            label={`${index + 1}번째 카메라 세팅 삭제`}
+                            onClick={() =>
+                              setData((current) => ({
+                                ...current,
+                                cameraSetups: current.cameraSetups.filter(
+                                  (_, rowIndex) => rowIndex !== index,
+                                ),
+                              }))
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {data.cameraSetups.length === 0 ? (
+                <p className="sheet-empty-state">
+                  등록된 카메라 세팅이 없습니다. 카메라 추가 버튼으로 입력을
+                  시작하세요.
+                </p>
+              ) : null}
+            </div>
+          </section>
+
           <section className="form-card" id="clips">
             <SectionHeader
-              eyebrow="03 · CLIP / SCENE"
+              eyebrow="04 · CLIP / SCENE"
               title="클립 · 씬 매핑"
               description="클립과 씬·컷·테이크를 연결하면 출력 페이지에서 씬 커버리지가 자동 집계됩니다."
               action={
@@ -941,7 +1096,7 @@ export default function InputPage() {
 
           <section className="form-card" id="storage">
             <SectionHeader
-              eyebrow="04 · STORAGE"
+              eyebrow="05 · STORAGE"
               title="저장매체"
               description="Primary와 Secondary 사본의 위치, 포맷, 준비 상태를 기록합니다."
               action={
@@ -1087,7 +1242,7 @@ export default function InputPage() {
 
           <section className="form-card" id="qc">
             <SectionHeader
-              eyebrow="05 · QUALITY CONTROL"
+              eyebrow="06 · QUALITY CONTROL"
               title="QC 체크리스트"
               description="상태는 요약 페이지와 경고 영역에 바로 반영됩니다."
             />
@@ -1291,7 +1446,7 @@ export default function InputPage() {
 
           <section className="form-card" id="handover">
             <SectionHeader
-              eyebrow="06 · HANDOVER"
+              eyebrow="07 · HANDOVER"
               title="인계 정보"
               description="수령자와 확인 상태를 명확히 남겨 후속 담당자가 바로 파악할 수 있게 합니다."
             />
@@ -1402,7 +1557,7 @@ export default function InputPage() {
 
           <section className="form-card" id="folder">
             <SectionHeader
-              eyebrow="07 · FILE TREE"
+              eyebrow="08 · FILE TREE"
               title="폴더트리"
               description="폴더 이름과 상위 폴더를 선택하면 출력용 트리가 자동으로 만들어집니다."
             />
@@ -1545,8 +1700,10 @@ export default function InputPage() {
             <div>
               <strong>리포트 작성 준비 완료</strong>
               <span>
-                {data.rolls.length}개 미디어 항목 · {data.clips.length}개 클립
-                · {data.storage.length}개 저장매체 · {data.issues.length}개 이슈
+                {data.rolls.length}개 미디어 항목 ·{" "}
+                {data.cameraSetups.length}개 카메라 · {data.clips.length}개
+                클립 · {data.storage.length}개 저장매체 ·{" "}
+                {data.issues.length}개 이슈
               </span>
             </div>
             <button className="button button-primary" type="submit">
