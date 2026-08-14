@@ -69,15 +69,38 @@ test("wires Clip / Scene rows into the A4 detail report", async () => {
     "utf8",
   );
   assert.match(source, /CLIP_FALLBACK_ROWS_PER_PAGE\s*=\s*23/);
-  assert.match(source, /SCENE_COVERAGE_ROWS_PER_PAGE\s*=\s*20/);
+  assert.match(source, /SCENE_COVERAGE_FALLBACK_ROWS_PER_PAGE\s*=\s*20/);
   assert.match(source, /pageSizesFromHeights/);
   assert.match(source, /data-clip-measure-row/);
-  assert.match(source, /className="clip-measure-page"/);
+  assert.match(source, /className="pagination-measure-page clip-measure-page"/);
   assert.match(source, /className="print-table clip-table"/);
   assert.match(source, /title="클립 · 씬 매핑"/);
   assert.match(source, /sceneCoverageChunks\.map/);
   assert.match(source, /className="coverage-page"/);
   assert.match(source, /씬 커버리지/);
+});
+
+test("fills every table page using measured A4 row heights", async () => {
+  const source = await readFile(
+    new URL("../app/report/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /function useMeasuredPageSizes/);
+  assert.match(source, /function chunksFromPageSizes/);
+  assert.match(source, /lastPageReservedHeight/);
+  assert.match(source, /data-measure-row/);
+  assert.match(source, /data-measure-reserve/);
+  assert.match(source, /useMeasuredPageSizes\(data\.rolls\)/);
+  assert.match(source, /useMeasuredPageSizes\(data\.cameraSetups\)/);
+  assert.match(source, /useMeasuredPageSizes\(data\.clips\)/);
+  assert.match(source, /useMeasuredPageSizes\(sceneCoverage\)/);
+  assert.match(source, /useMeasuredPageSizes\(data\.storage\)/);
+  assert.match(css, /\.pagination-measure-page\s*\{/);
 });
 
 test("keeps large folder trees on one balanced two-column A4 page", async () => {

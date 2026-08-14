@@ -14,11 +14,19 @@ import {
   initialReportData,
   loadReportData,
 } from "../report-data";
-import type { CameraSetup, ClipLog, ReportData } from "../report-data";
+import type {
+  CameraSetup,
+  ClipLog,
+  ReportData,
+  RollLog,
+  StorageLog,
+} from "../report-data";
 
+const ROLL_FALLBACK_ROWS_PER_PAGE = 12;
 const CLIP_FALLBACK_ROWS_PER_PAGE = 23;
-const SCENE_COVERAGE_ROWS_PER_PAGE = 20;
-const CAMERA_SETUP_ROWS_PER_PAGE = 16;
+const SCENE_COVERAGE_FALLBACK_ROWS_PER_PAGE = 20;
+const CAMERA_SETUP_FALLBACK_ROWS_PER_PAGE = 16;
+const STORAGE_FALLBACK_ROWS_PER_PAGE = 13;
 const FOLDER_SINGLE_COLUMN_LINE_LIMIT = 34;
 
 function chunk<T>(rows: T[], size: number): T[][] {
@@ -30,26 +38,128 @@ function chunk<T>(rows: T[], size: number): T[][] {
   return chunks;
 }
 
-function pageSizesFromHeights(rowHeights: number[], availableHeight: number) {
+function pageSizesFromHeights(
+  rowHeights: number[],
+  availableHeight: number,
+  lastPageReservedHeight = 0,
+) {
   const pageSizes: number[] = [];
-  let currentHeight = 0;
-  let currentSize = 0;
+  const suffixHeights = new Array(rowHeights.length + 1).fill(0) as number[];
+  for (let index = rowHeights.length - 1; index >= 0; index -= 1) {
+    suffixHeights[index] = suffixHeights[index + 1] + rowHeights[index];
+  }
 
-  rowHeights.forEach((rowHeight) => {
-    if (
-      currentSize > 0 &&
-      currentHeight + rowHeight > availableHeight
-    ) {
-      pageSizes.push(currentSize);
-      currentHeight = 0;
-      currentSize = 0;
+  const lastPageHeight = Math.max(
+    1,
+    availableHeight - lastPageReservedHeight,
+  );
+  let offset = 0;
+
+  while (offset < rowHeights.length) {
+    if (suffixHeights[offset] <= lastPageHeight) {
+      pageSizes.push(rowHeights.length - offset);
+      break;
     }
-    currentHeight += rowHeight;
-    currentSize += 1;
-  });
 
-  if (currentSize > 0) pageSizes.push(currentSize);
+    let currentHeight = 0;
+    let currentSize = 0;
+    while (
+      offset + currentSize < rowHeights.length &&
+      (currentSize === 0 ||
+        currentHeight + rowHeights[offset + currentSize] <= availableHeight)
+    ) {
+      currentHeight += rowHeights[offset + currentSize];
+      currentSize += 1;
+    }
+
+    if (offset + currentSize >= rowHeights.length && currentSize > 1) {
+      currentSize -= 1;
+    }
+    pageSizes.push(Math.max(1, currentSize));
+    offset += Math.max(1, currentSize);
+  }
+
   return pageSizes;
+}
+
+function chunksFromPageSizes<T>(
+  rows: T[],
+  pageSizes: number[],
+  fallbackSize: number,
+  includeEmptyPage = true,
+) {
+  if (rows.length === 0) return includeEmptyPage ? [[]] : [];
+  const measuredRows = pageSizes.reduce((total, size) => total + size, 0);
+  if (measuredRows !== rows.length) return chunk(rows, fallbackSize);
+
+  let offset = 0;
+  return pageSizes.map((size) => {
+    const pageRows = rows.slice(offset, offset + size);
+    offset += size;
+    return pageRows;
+  });
+}
+
+function useMeasuredPageSizes(rows: readonly unknown[]) {
+  const [pageSizes, setPageSizes] = useState<number[]>([]);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content || rows.length === 0) {
+      setPageSizes((current) => (current.length ? [] : current));
+      return;
+    }
+
+    let cancelled = false;
+    const measure = () => {
+      if (cancelled) return;
+      const tableHeader = content.querySelector("thead");
+      const measuredRows = Array.from(
+        content.querySelectorAll<HTMLTableRowElement>("[data-measure-row]"),
+      );
+      if (!tableHeader || measuredRows.length !== rows.length) return;
+
+      const availableHeight =
+        content.getBoundingClientRect().bottom -
+        tableHeader.getBoundingClientRect().bottom -
+        3;
+      if (availableHeight <= 0) return;
+
+      const reservedHeight = Array.from(
+        content.querySelectorAll<HTMLElement>("[data-measure-reserve]"),
+      ).reduce((total, element) => {
+        const style = window.getComputedStyle(element);
+        return (
+          total +
+          element.getBoundingClientRect().height +
+          Number.parseFloat(style.marginTop || "0") +
+          Number.parseFloat(style.marginBottom || "0")
+        );
+      }, 0);
+      const nextPageSizes = pageSizesFromHeights(
+        measuredRows.map((row) => row.getBoundingClientRect().height),
+        availableHeight,
+        reservedHeight,
+      );
+      setPageSizes((current) =>
+        current.length === nextPageSizes.length &&
+        current.every((size, index) => size === nextPageSizes[index])
+          ? current
+          : nextPageSizes,
+      );
+    };
+
+    measure();
+    void document.fonts?.ready.then(measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", measure);
+    };
+  }, [rows]);
+
+  return { contentRef, pageSizes };
 }
 
 function folderLineDepth(line: string) {
@@ -262,6 +372,73 @@ function Page({
   );
 }
 
+function RollTable({
+  rows,
+  measurement = false,
+  showTotals = false,
+  totalGb,
+  totalClips,
+}: {
+  rows: RollLog[];
+  measurement?: boolean;
+  showTotals?: boolean;
+  totalGb: number;
+  totalClips: number;
+}) {
+  return (
+    <table className="print-table roll-table">
+      <thead>
+        <tr>
+          <th>Roll</th>
+          <th>Camera</th>
+          <th>Codec / Resolution</th>
+          <th>Card</th>
+          <th>GB</th>
+          <th>Checksum</th>
+          <th>Status</th>
+          <th>Clips</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr
+            data-measure-row={measurement ? "true" : undefined}
+            key={`${row.roll}-${row.camera}-${index}`}
+          >
+            <td><PrintValue>{row.roll}</PrintValue></td>
+            <td><PrintValue>{row.camera}</PrintValue></td>
+            <td><PrintValue>{row.codec}</PrintValue></td>
+            <td><PrintValue>{row.card}</PrintValue></td>
+            <td className="numeric">
+              <PrintValue>{Number(row.offloadGb).toFixed(2)}</PrintValue>
+            </td>
+            <td><PrintValue>{row.checksum}</PrintValue></td>
+            <td>
+              <PrintValue className={statusTone(row.status)}>
+                {row.status || "—"}
+              </PrintValue>
+            </td>
+            <td className="numeric"><PrintValue>{row.clips}</PrintValue></td>
+            <td><PrintValue>{row.notes}</PrintValue></td>
+          </tr>
+        ))}
+      </tbody>
+      {showTotals ? (
+        <tfoot data-measure-reserve={measurement ? "true" : undefined}>
+          <tr>
+            <th colSpan={4}>TOTAL</th>
+            <th className="numeric">{totalGb.toFixed(2)}</th>
+            <th colSpan={2} />
+            <th className="numeric">{totalClips}</th>
+            <th />
+          </tr>
+        </tfoot>
+      ) : null}
+    </table>
+  );
+}
+
 function ClipTable({
   rows,
   measurement = false,
@@ -290,6 +467,7 @@ function ClipTable({
         {rows.map((clip, index) => (
           <tr
             data-clip-measure-row={measurement ? "true" : undefined}
+            data-measure-row={measurement ? "true" : undefined}
             key={`${clip.fileName}-${clip.roll}-${index}`}
           >
             <td><PrintValue>{clip.fileName}</PrintValue></td>
@@ -314,7 +492,13 @@ function ClipTable({
   );
 }
 
-function CameraSetupTable({ rows }: { rows: CameraSetup[] }) {
+function CameraSetupTable({
+  rows,
+  measurement = false,
+}: {
+  rows: CameraSetup[];
+  measurement?: boolean;
+}) {
   return (
     <table className="print-table camera-setup-table">
       <thead>
@@ -329,7 +513,10 @@ function CameraSetupTable({ rows }: { rows: CameraSetup[] }) {
       </thead>
       <tbody>
         {rows.map((row, index) => (
-          <tr key={`${row.camera}-${row.body}-${index}`}>
+          <tr
+            data-measure-row={measurement ? "true" : undefined}
+            key={`${row.camera}-${row.body}-${index}`}
+          >
             <td><PrintValue>{row.camera}</PrintValue></td>
             <td><PrintValue>{row.body}</PrintValue></td>
             <td><PrintValue>{row.codecResolution}</PrintValue></td>
@@ -340,6 +527,155 @@ function CameraSetupTable({ rows }: { rows: CameraSetup[] }) {
         ))}
       </tbody>
     </table>
+  );
+}
+
+type SceneCoverageRow = {
+  scene: string;
+  takes: number;
+  ok: number;
+  ng: number;
+};
+
+function SceneCoverageTable({
+  rows,
+  measurement = false,
+}: {
+  rows: SceneCoverageRow[];
+  measurement?: boolean;
+}) {
+  return (
+    <table className="print-table coverage-table">
+      <thead>
+        <tr>
+          <th>Scene</th>
+          <th>테이크</th>
+          <th>OK</th>
+          <th>NG</th>
+          <th>OK 존재?</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((scene) => (
+          <tr
+            data-measure-row={measurement ? "true" : undefined}
+            key={scene.scene}
+          >
+            <td><PrintValue>{scene.scene}</PrintValue></td>
+            <td><PrintValue>{scene.takes}</PrintValue></td>
+            <td><PrintValue>{scene.ok}</PrintValue></td>
+            <td><PrintValue>{scene.ng}</PrintValue></td>
+            <td>
+              <PrintValue className={scene.ok ? "tone-good" : "tone-bad"}>
+                {scene.ok ? "OK 확보" : "확인 필요"}
+              </PrintValue>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function StorageTable({
+  rows,
+  measurement = false,
+}: {
+  rows: StorageLog[];
+  measurement?: boolean;
+}) {
+  return (
+    <table className="print-table storage-table">
+      <thead>
+        <tr>
+          <th>등급</th>
+          <th>용도</th>
+          <th>스토리지</th>
+          <th>포맷</th>
+          <th>경로</th>
+          <th>상태</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr
+            data-measure-row={measurement ? "true" : undefined}
+            key={`${row.storage}-${index}`}
+          >
+            <td><PrintValue>{row.grade}</PrintValue></td>
+            <td><PrintValue>{row.purpose}</PrintValue></td>
+            <td><PrintValue>{row.storage}</PrintValue></td>
+            <td><PrintValue>{row.format}</PrintValue></td>
+            <td><PrintValue>{row.path}</PrintValue></td>
+            <td>
+              <PrintValue className={statusTone(row.status)}>
+                {row.status || "—"}
+              </PrintValue>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function RollChecksumNote({ measurement = false }: { measurement?: boolean }) {
+  return (
+    <div
+      className="print-note"
+      data-measure-reserve={measurement ? "true" : undefined}
+    >
+      <strong>CHECKSUM NOTE</strong>
+      <p>
+        검증이 완료되지 않은 항목은 PASS로 간주하지 않으며, 원본 확인 후
+        재검증 결과를 이 리포트에 업데이트합니다.
+      </p>
+    </div>
+  );
+}
+
+function StorageSupplement({
+  backupCount,
+  measurement = false,
+  primaryReady,
+}: {
+  backupCount: number;
+  measurement?: boolean;
+  primaryReady: boolean;
+}) {
+  return (
+    <>
+      <div
+        className={`storage-alert ${
+          primaryReady ? "storage-alert-good" : ""
+        }`}
+        data-measure-reserve={measurement ? "true" : undefined}
+      >
+        <span aria-hidden="true">{primaryReady ? "✓" : "!"}</span>
+        <div>
+          <strong>
+            {primaryReady
+              ? "Primary 저장매체 연결 완료"
+              : "3-2-1 백업 상태 확인 필요"}
+          </strong>
+          <p>
+            {primaryReady
+              ? `현재 Ready 상태 백업본은 ${backupCount}개입니다.`
+              : "Primary 또는 오프사이트 사본이 준비되지 않았습니다. 다음 회차 전 확보를 권장합니다."}
+          </p>
+        </div>
+      </div>
+      <div
+        className="print-note"
+        data-measure-reserve={measurement ? "true" : undefined}
+      >
+        <strong>FORMAT GUIDE</strong>
+        <p>
+          macOS·Windows 양쪽 호환은 exFAT, macOS 전용 작업/DI는 APFS 사용을
+          권장합니다. 단일 파일 4GB 초과 시 FAT32는 사용하지 않습니다.
+        </p>
+      </div>
+    </>
   );
 }
 
@@ -383,8 +719,6 @@ function SectionTitle({
 
 export default function ReportPage() {
   const [data, setData] = useState<ReportData>(initialReportData);
-  const [clipPageSizes, setClipPageSizes] = useState<number[]>([]);
-  const clipMeasureContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setData(loadReportData()), 0);
@@ -392,33 +726,6 @@ export default function ReportPage() {
   }, []);
 
   const metrics = useMemo(() => getReportMetrics(data), [data]);
-  const rollChunks = useMemo(() => chunk(data.rolls, 12), [data.rolls]);
-  const cameraSetupChunks = useMemo(
-    () => chunk(data.cameraSetups, CAMERA_SETUP_ROWS_PER_PAGE),
-    [data.cameraSetups],
-  );
-  const clipChunks = useMemo(() => {
-    if (data.clips.length === 0) return [];
-
-    const measuredRows = clipPageSizes.reduce(
-      (total, size) => total + size,
-      0,
-    );
-    if (measuredRows !== data.clips.length) {
-      return chunk(data.clips, CLIP_FALLBACK_ROWS_PER_PAGE);
-    }
-
-    let offset = 0;
-    return clipPageSizes.map((size) => {
-      const rows = data.clips.slice(offset, offset + size);
-      offset += size;
-      return rows;
-    });
-  }, [clipPageSizes, data.clips]);
-  const storageChunks = useMemo(
-    () => chunk(data.storage, 13),
-    [data.storage],
-  );
   const folderTreeLayout = useMemo(
     () => buildFolderTreeLayout(data.folderTree),
     [data.folderTree],
@@ -444,58 +751,60 @@ export default function ReportPage() {
     });
     return [...scenes.values()];
   }, [data.clips]);
+
+  const rollMeasurement = useMeasuredPageSizes(data.rolls);
+  const cameraSetupMeasurement = useMeasuredPageSizes(data.cameraSetups);
+  const clipMeasurement = useMeasuredPageSizes(data.clips);
+  const sceneCoverageMeasurement = useMeasuredPageSizes(sceneCoverage);
+  const storageMeasurement = useMeasuredPageSizes(data.storage);
+
+  const rollChunks = useMemo(
+    () =>
+      chunksFromPageSizes(
+        data.rolls,
+        rollMeasurement.pageSizes,
+        ROLL_FALLBACK_ROWS_PER_PAGE,
+      ),
+    [data.rolls, rollMeasurement.pageSizes],
+  );
+  const cameraSetupChunks = useMemo(
+    () =>
+      chunksFromPageSizes(
+        data.cameraSetups,
+        cameraSetupMeasurement.pageSizes,
+        CAMERA_SETUP_FALLBACK_ROWS_PER_PAGE,
+      ),
+    [cameraSetupMeasurement.pageSizes, data.cameraSetups],
+  );
+  const clipChunks = useMemo(
+    () =>
+      chunksFromPageSizes(
+        data.clips,
+        clipMeasurement.pageSizes,
+        CLIP_FALLBACK_ROWS_PER_PAGE,
+        false,
+      ),
+    [clipMeasurement.pageSizes, data.clips],
+  );
   const sceneCoverageChunks = useMemo(
     () =>
-      sceneCoverage.length
-        ? chunk(sceneCoverage, SCENE_COVERAGE_ROWS_PER_PAGE)
-        : [],
-    [sceneCoverage],
+      chunksFromPageSizes(
+        sceneCoverage,
+        sceneCoverageMeasurement.pageSizes,
+        SCENE_COVERAGE_FALLBACK_ROWS_PER_PAGE,
+        false,
+      ),
+    [sceneCoverage, sceneCoverageMeasurement.pageSizes],
   );
-
-  useLayoutEffect(() => {
-    const content = clipMeasureContentRef.current;
-    if (!content || data.clips.length === 0) {
-      setClipPageSizes((current) => (current.length ? [] : current));
-      return;
-    }
-
-    let cancelled = false;
-    const measure = () => {
-      if (cancelled) return;
-      const tableHeader = content.querySelector("thead");
-      const rows = Array.from(
-        content.querySelectorAll<HTMLTableRowElement>(
-          "[data-clip-measure-row]",
-        ),
-      );
-      if (!tableHeader || rows.length !== data.clips.length) return;
-
-      const availableHeight =
-        content.getBoundingClientRect().bottom -
-        tableHeader.getBoundingClientRect().bottom -
-        2;
-      if (availableHeight <= 0) return;
-
-      const nextPageSizes = pageSizesFromHeights(
-        rows.map((row) => row.getBoundingClientRect().height),
-        availableHeight,
-      );
-      setClipPageSizes((current) =>
-        current.length === nextPageSizes.length &&
-        current.every((size, index) => size === nextPageSizes[index])
-          ? current
-          : nextPageSizes,
-      );
-    };
-
-    measure();
-    void document.fonts?.ready.then(measure);
-    window.addEventListener("resize", measure);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("resize", measure);
-    };
-  }, [data.clips]);
+  const storageChunks = useMemo(
+    () =>
+      chunksFromPageSizes(
+        data.storage,
+        storageMeasurement.pageSizes,
+        STORAGE_FALLBACK_ROWS_PER_PAGE,
+      ),
+    [data.storage, storageMeasurement.pageSizes],
+  );
 
   const passedQc = data.qc.filter((item) =>
     ["OK", "PASS"].includes(item.status),
@@ -559,10 +868,57 @@ export default function ReportPage() {
         </div>
       </div>
 
+      {data.rolls.length ? (
+        <Page
+          className="pagination-measure-page"
+          contentRef={rollMeasurement.contentRef}
+          data={data}
+          pageNumber={0}
+          totalPages={0}
+          section="DETAIL 01"
+          title="미디어 롤"
+        >
+          <SectionTitle
+            number="01"
+            eyebrow="ROLL LOG"
+            title="미디어 롤 · 오프로드"
+            description="카드별 데이터 이관과 체크섬 결과"
+          />
+          <RollTable
+            measurement
+            rows={data.rolls}
+            showTotals
+            totalClips={metrics.clipCount}
+            totalGb={metrics.offloadGb}
+          />
+          <RollChecksumNote measurement />
+        </Page>
+      ) : null}
+
+      {data.cameraSetups.length ? (
+        <Page
+          className="pagination-measure-page"
+          contentRef={cameraSetupMeasurement.contentRef}
+          data={data}
+          pageNumber={0}
+          totalPages={0}
+          section="DETAIL 02"
+          title="ON-SET"
+        >
+          <SectionTitle
+            number="02"
+            eyebrow="ON-SET CAMERA SETTINGS"
+            title="카메라 세팅"
+            description="바디, 기록 포맷, 프레임레이트, 색공간과 LUT"
+          />
+          <CameraSetupTable measurement rows={data.cameraSetups} />
+        </Page>
+      ) : null}
+
       {data.clips.length ? (
         <Page
-          className="clip-measure-page"
-          contentRef={clipMeasureContentRef}
+          className="pagination-measure-page clip-measure-page"
+          contentRef={clipMeasurement.contentRef}
           data={data}
           pageNumber={0}
           totalPages={0}
@@ -576,6 +932,51 @@ export default function ReportPage() {
             description="클립별 씬·컷·테이크와 타임코드"
           />
           <ClipTable rows={data.clips} measurement />
+        </Page>
+      ) : null}
+
+      {sceneCoverage.length ? (
+        <Page
+          className="pagination-measure-page"
+          contentRef={sceneCoverageMeasurement.contentRef}
+          data={data}
+          pageNumber={0}
+          totalPages={0}
+          section="DETAIL 03"
+          title="씬 커버리지"
+        >
+          <SectionTitle
+            number="03"
+            eyebrow="CLIP / SCENE SUMMARY"
+            title="씬 커버리지"
+            description="씬별 테이크와 OK 확보 현황"
+          />
+          <SceneCoverageTable measurement rows={sceneCoverage} />
+        </Page>
+      ) : null}
+
+      {data.storage.length ? (
+        <Page
+          className="pagination-measure-page"
+          contentRef={storageMeasurement.contentRef}
+          data={data}
+          pageNumber={0}
+          totalPages={0}
+          section="DETAIL 04"
+          title="저장매체"
+        >
+          <SectionTitle
+            number="04"
+            eyebrow="STORAGE"
+            title="백업 저장매체"
+            description="사본 등급, 포맷, 경로와 준비 상태"
+          />
+          <StorageTable measurement rows={data.storage} />
+          <StorageSupplement
+            backupCount={metrics.backupCount}
+            measurement
+            primaryReady={primaryReady}
+          />
         </Page>
       ) : null}
 
@@ -820,64 +1221,15 @@ export default function ReportPage() {
                     : ""
                 }`}
               />
-              <table className="print-table roll-table">
-                <thead>
-                  <tr>
-                    <th>Roll</th>
-                    <th>Camera</th>
-                    <th>Codec / Resolution</th>
-                    <th>Card</th>
-                    <th>GB</th>
-                    <th>Checksum</th>
-                    <th>Status</th>
-                    <th>Clips</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={`${row.roll}-${row.camera}-${index}`}>
-                      <td><PrintValue>{row.roll}</PrintValue></td>
-                      <td><PrintValue>{row.camera}</PrintValue></td>
-                      <td><PrintValue>{row.codec}</PrintValue></td>
-                      <td><PrintValue>{row.card}</PrintValue></td>
-                      <td className="numeric">
-                        <PrintValue>
-                          {Number(row.offloadGb).toFixed(2)}
-                        </PrintValue>
-                      </td>
-                      <td><PrintValue>{row.checksum}</PrintValue></td>
-                      <td>
-                        <PrintValue className={statusTone(row.status)}>
-                          {row.status || "—"}
-                        </PrintValue>
-                      </td>
-                      <td className="numeric">
-                        <PrintValue>{row.clips}</PrintValue>
-                      </td>
-                      <td><PrintValue>{row.notes}</PrintValue></td>
-                    </tr>
-                  ))}
-                </tbody>
-                {chunkIndex === rollChunks.length - 1 ? (
-                  <tfoot>
-                    <tr>
-                      <th colSpan={4}>TOTAL</th>
-                      <th className="numeric">{metrics.offloadGb.toFixed(2)}</th>
-                      <th colSpan={2} />
-                      <th className="numeric">{metrics.clipCount}</th>
-                      <th />
-                    </tr>
-                  </tfoot>
-                ) : null}
-              </table>
-              <div className="print-note">
-                <strong>CHECKSUM NOTE</strong>
-                <p>
-                  검증이 완료되지 않은 항목은 PASS로 간주하지 않으며, 원본 확인
-                  후 재검증 결과를 이 리포트에 업데이트합니다.
-                </p>
-              </div>
+              <RollTable
+                rows={rows}
+                showTotals={chunkIndex === rollChunks.length - 1}
+                totalClips={metrics.clipCount}
+                totalGb={metrics.offloadGb}
+              />
+              {chunkIndex === rollChunks.length - 1 ? (
+                <RollChecksumNote />
+              ) : null}
             </Page>
           );
         })}
@@ -955,34 +1307,7 @@ export default function ReportPage() {
                   : ""
               }`}
             />
-            <table className="print-table coverage-table">
-              <thead>
-                <tr>
-                  <th>Scene</th>
-                  <th>테이크</th>
-                  <th>OK</th>
-                  <th>NG</th>
-                  <th>OK 존재?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scenes.map((scene) => (
-                  <tr key={scene.scene}>
-                    <td><PrintValue>{scene.scene}</PrintValue></td>
-                    <td><PrintValue>{scene.takes}</PrintValue></td>
-                    <td><PrintValue>{scene.ok}</PrintValue></td>
-                    <td><PrintValue>{scene.ng}</PrintValue></td>
-                    <td>
-                      <PrintValue
-                        className={scene.ok ? "tone-good" : "tone-bad"}
-                      >
-                        {scene.ok ? "OK 확보" : "확인 필요"}
-                      </PrintValue>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <SceneCoverageTable rows={scenes} />
           </Page>
         ))}
 
@@ -1006,64 +1331,12 @@ export default function ReportPage() {
                     : ""
                 }`}
               />
-              <table className="print-table storage-table">
-                <thead>
-                  <tr>
-                    <th>등급</th>
-                    <th>용도</th>
-                    <th>스토리지</th>
-                    <th>포맷</th>
-                    <th>경로</th>
-                    <th>상태</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={`${row.storage}-${index}`}>
-                      <td><PrintValue>{row.grade}</PrintValue></td>
-                      <td><PrintValue>{row.purpose}</PrintValue></td>
-                      <td><PrintValue>{row.storage}</PrintValue></td>
-                      <td><PrintValue>{row.format}</PrintValue></td>
-                      <td><PrintValue>{row.path}</PrintValue></td>
-                      <td>
-                        <PrintValue className={statusTone(row.status)}>
-                          {row.status || "—"}
-                        </PrintValue>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <StorageTable rows={rows} />
               {chunkIndex === storageChunks.length - 1 ? (
-                <>
-                  <div
-                    className={`storage-alert ${
-                      primaryReady ? "storage-alert-good" : ""
-                    }`}
-                  >
-                    <span aria-hidden="true">{primaryReady ? "✓" : "!"}</span>
-                    <div>
-                      <strong>
-                        {primaryReady
-                          ? "Primary 저장매체 연결 완료"
-                          : "3-2-1 백업 상태 확인 필요"}
-                      </strong>
-                      <p>
-                        {primaryReady
-                          ? `현재 Ready 상태 백업본은 ${metrics.backupCount}개입니다.`
-                          : "Primary 또는 오프사이트 사본이 준비되지 않았습니다. 다음 회차 전 확보를 권장합니다."}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="print-note">
-                    <strong>FORMAT GUIDE</strong>
-                    <p>
-                      macOS·Windows 양쪽 호환은 exFAT, macOS 전용 작업/DI는
-                      APFS 사용을 권장합니다. 단일 파일 4GB 초과 시 FAT32는
-                      사용하지 않습니다.
-                    </p>
-                  </div>
-                </>
+                <StorageSupplement
+                  backupCount={metrics.backupCount}
+                  primaryReady={primaryReady}
+                />
               ) : null}
             </Page>
           );

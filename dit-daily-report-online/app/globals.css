@@ -1277,7 +1277,7 @@ button {
   width: 210mm;
 }
 
-.clip-measure-page {
+.pagination-measure-page {
   box-shadow: none;
   left: -10000px;
   margin: 0;
@@ -2395,7 +2395,7 @@ button {
     display: none !important;
   }
 
-  .clip-measure-page {
+  .pagination-measure-page {
     display: none !important;
   }
 
