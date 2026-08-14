@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChangeEvent,
   CSSProperties,
   FormEvent,
   forwardRef,
@@ -15,6 +16,8 @@ import Link from "next/link";
 import {
   CameraSetup,
   ClipLog,
+  createEmptyReportData,
+  createReportExport,
   emptyCameraSetup,
   emptyClip,
   emptyIssue,
@@ -24,10 +27,14 @@ import {
   initialReportData,
   IssueLog,
   loadReportData,
+  parseReportImport,
   QualityStatus,
   ReportData,
+  ROLL_STATUS_OPTIONS,
   RollLog,
   saveReportData,
+  STORAGE_GRADE_OPTIONS,
+  STORAGE_KEY,
   STORAGE_STATUS_OPTIONS,
   StorageLog,
 } from "./report-data";
@@ -269,6 +276,7 @@ export default function InputPage() {
   const [newFolderName, setNewFolderName] = useState("");
   const [parentFolderPath, setParentFolderPath] = useState("");
   const folderNameInputRef = useRef<HTMLTextAreaElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -393,6 +401,71 @@ export default function InputPage() {
     folderNameInputRef.current?.focus();
   };
 
+  const exportReportData = () => {
+    saveReportData(data);
+    const safeTitle = (data.project.title || "dit-daily-report")
+      .trim()
+      .replace(/[^\p{L}\p{N}._-]+/gu, "-")
+      .replace(/^-+|-+$/g, "") || "dit-daily-report";
+    const date = data.project.shootDate || new Date().toISOString().slice(0, 10);
+    const blob = new Blob(
+      [JSON.stringify(createReportExport(data), null, 2)],
+      { type: "application/json" },
+    );
+    const downloadUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = downloadUrl;
+    anchor.download = `${safeTitle}-${date}.dit-report.json`;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+    setSaveState("내보내기 완료");
+  };
+
+  const importReportData = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      const importedData = parseReportImport(await file.text());
+      const shouldReplace = window.confirm(
+        "현재 작성 내용이 불러온 리포트 데이터로 대체됩니다. 계속할까요?",
+      );
+      if (!shouldReplace) return;
+
+      saveReportData(importedData);
+      setData(importedData);
+      setNewFolderName("");
+      setParentFolderPath("");
+      setSaveState("불러오기 완료");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "파일을 불러오는 중 오류가 발생했습니다.";
+      window.alert(message);
+    }
+  };
+
+  const clearAllReportData = () => {
+    const shouldClear = window.confirm(
+      "작성한 모든 데이터를 삭제하고 빈 리포트로 초기화할까요? 이 작업은 되돌릴 수 없습니다.",
+    );
+    if (!shouldClear) return;
+
+    const emptyData = createEmptyReportData();
+    window.localStorage.removeItem(STORAGE_KEY);
+    saveReportData(emptyData);
+    setData(emptyData);
+    setNewFolderName("");
+    setParentFolderPath("");
+    setSaveState("전체 삭제 완료");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const openReport = (event: FormEvent) => {
     event.preventDefault();
     saveReportData(data);
@@ -465,10 +538,41 @@ export default function InputPage() {
                 자동 구성됩니다.
               </p>
             </div>
-            <Link className="button button-secondary" href="/report">
-              미리보기
-              <span aria-hidden="true">↗</span>
-            </Link>
+            <div className="form-intro-actions" aria-label="데이터 관리">
+              <Link className="button button-secondary" href="/report">
+                미리보기
+                <span aria-hidden="true">↗</span>
+              </Link>
+              <button
+                className="button button-ghost"
+                type="button"
+                onClick={exportReportData}
+              >
+                데이터 내보내기
+              </button>
+              <button
+                className="button button-ghost"
+                type="button"
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                데이터 불러오기
+              </button>
+              <button
+                className="button button-danger-ghost"
+                type="button"
+                onClick={clearAllReportData}
+              >
+                전체 데이터 삭제
+              </button>
+              <input
+                ref={importFileInputRef}
+                className="sr-only"
+                type="file"
+                accept=".json,application/json"
+                aria-label="DIT 데일리 리포트 JSON 파일 선택"
+                onChange={importReportData}
+              />
+            </div>
           </section>
 
           <section className="form-card" id="basic">
@@ -723,13 +827,26 @@ export default function InputPage() {
                           />
                         </td>
                         <td>
-                          <FluidTextArea
+                          <select
                             aria-label={`${index + 1}번째 롤 상태`}
                             value={row.status}
                             onChange={(event) =>
                               updateRoll(index, { status: event.target.value })
                             }
-                          />
+                          >
+                            {!ROLL_STATUS_OPTIONS.includes(
+                              row.status as (typeof ROLL_STATUS_OPTIONS)[number],
+                            ) && row.status ? (
+                              <option value={row.status}>
+                                {row.status} (기존 값)
+                              </option>
+                            ) : null}
+                            {ROLL_STATUS_OPTIONS.map((status) => (
+                              <option key={status} value={status}>
+                                {status}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td className="sheet-number-cell">
                           <input
@@ -1149,7 +1266,7 @@ export default function InputPage() {
                           {String(index + 1).padStart(2, "0")}
                         </th>
                         <td>
-                          <FluidTextArea
+                          <select
                             aria-label={`${index + 1}번째 저장매체 등급`}
                             value={row.grade}
                             onChange={(event) =>
@@ -1157,7 +1274,21 @@ export default function InputPage() {
                                 grade: event.target.value,
                               })
                             }
-                          />
+                          >
+                            <option value="">등급 선택</option>
+                            {!STORAGE_GRADE_OPTIONS.includes(
+                              row.grade as (typeof STORAGE_GRADE_OPTIONS)[number],
+                            ) && row.grade ? (
+                              <option value={row.grade}>
+                                {row.grade} (기존 값)
+                              </option>
+                            ) : null}
+                            {STORAGE_GRADE_OPTIONS.map((grade) => (
+                              <option key={grade} value={grade}>
+                                {grade}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td>
                           <FluidTextArea

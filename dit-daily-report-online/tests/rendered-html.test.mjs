@@ -45,6 +45,9 @@ test("renders the DIT input page", async () => {
   assert.match(html, /새 폴더명/);
   assert.match(html, /\+ 폴더 추가/);
   assert.match(html, /출력 페이지 만들기/);
+  assert.match(html, /데이터 내보내기/);
+  assert.match(html, /데이터 불러오기/);
+  assert.match(html, /전체 데이터 삭제/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
@@ -75,6 +78,26 @@ test("wires Clip / Scene rows into the A4 detail report", async () => {
   assert.match(source, /sceneCoverageChunks\.map/);
   assert.match(source, /className="coverage-page"/);
   assert.match(source, /씬 커버리지/);
+});
+
+test("keeps large folder trees on one balanced two-column A4 page", async () => {
+  const source = await readFile(
+    new URL("../app/report/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /FOLDER_SINGLE_COLUMN_LINE_LIMIT\s*=\s*34/);
+  assert.match(source, /function buildFolderTreeLayout/);
+  assert.match(source, /rootStarts\.length > 1/);
+  assert.match(source, /childStarts\.length > 1/);
+  assert.match(source, /folderTreeLayout\.columns\.map/);
+  assert.doesNotMatch(source, /chunk\(data\.folderTree\.split/);
+  assert.match(css, /\.folder-tree-two-columns\s*\{[^}]*grid-template-columns:\s*repeat\(2/s);
+  assert.match(css, /--folder-tree-font-size/);
 });
 
 test("uses fluid-width two-line fields in input and print tables", async () => {
@@ -126,6 +149,11 @@ test("ships with an empty project data set", async () => {
   assert.match(source, /issues:\s*\[\]/);
   assert.match(source, /folderTree:\s*""/);
   assert.match(source, /"Ready"[\s\S]*"Hold"[\s\S]*"Pending"/);
+  assert.match(source, /ROLL_STATUS_OPTIONS[\s\S]*Ready \(준비 완료\)[\s\S]*Hold \(보류\)/);
+  assert.match(source, /STORAGE_GRADE_OPTIONS[\s\S]*Primary \(1차 백업\)[\s\S]*Archive \(장기 보관\)/);
+  assert.match(source, /REPORT_EXPORT_FORMAT\s*=\s*"dit-daily-report"/);
+  assert.match(source, /function createReportExport/);
+  assert.match(source, /function parseReportImport/);
   assert.match(
     source,
     /emptyClip[\s\S]*fileName:[\s\S]*scene:[\s\S]*result:\s*"OK"/,

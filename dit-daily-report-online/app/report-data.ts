@@ -1,5 +1,25 @@
 export type ReportStatus = "READY" | "CHECK" | "HOLD";
 export type QualityStatus = "OK" | "PASS" | "CHECK" | "PENDING" | "N/A";
+export const ROLL_STATUS_OPTIONS = [
+  "Pending (대기)",
+  "Ready (준비 완료)",
+  "Copying (복사 중)",
+  "Verifying (검증 중)",
+  "Pass (검증 통과)",
+  "Hold (보류)",
+  "Failed (실패)",
+  "N/A (해당 없음)",
+] as const;
+export const STORAGE_GRADE_OPTIONS = [
+  "Source (원본 카드)",
+  "Primary (1차 백업)",
+  "Secondary (2차 백업)",
+  "Tertiary (3차 백업)",
+  "Shuttle (운반용)",
+  "Archive (장기 보관)",
+  "Proxy (프록시)",
+  "N/A (해당 없음)",
+] as const;
 export const STORAGE_STATUS_OPTIONS = [
   "Ready",
   "Copying",
@@ -103,6 +123,8 @@ export type ReportData = {
 };
 
 export const STORAGE_KEY = "dit-daily-report-v2";
+export const REPORT_EXPORT_FORMAT = "dit-daily-report";
+export const REPORT_EXPORT_VERSION = 1;
 
 export const initialReportData: ReportData = {
   project: {
@@ -177,7 +199,7 @@ export const emptyRoll = (): RollLog => ({
   card: "",
   offloadGb: 0,
   checksum: "xxHash64",
-  status: "PASS",
+  status: "Pending (대기)",
   clips: 0,
   notes: "",
 });
@@ -225,6 +247,12 @@ export const emptyIssue = (): IssueLog => ({
 const cloneInitial = () =>
   JSON.parse(JSON.stringify(initialReportData)) as ReportData;
 
+export const createEmptyReportData = () => cloneInitial();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function normalizeStorageStatus(value: unknown): StorageStatus {
   if (
     typeof value === "string" &&
@@ -241,42 +269,95 @@ export function loadReportData(): ReportData {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) return cloneInitial();
-    const parsed = JSON.parse(saved) as Partial<ReportData>;
-
-    return {
-      ...cloneInitial(),
-      ...parsed,
-      project: { ...initialReportData.project, ...parsed.project },
-      handover: { ...initialReportData.handover, ...parsed.handover },
-      rolls: Array.isArray(parsed.rolls) ? parsed.rolls : cloneInitial().rolls,
-      cameraSetups: Array.isArray(parsed.cameraSetups)
-        ? parsed.cameraSetups.map((row) => ({
-            ...emptyCameraSetup(),
-            ...row,
-          }))
-        : cloneInitial().cameraSetups,
-      clips: Array.isArray(parsed.clips)
-        ? parsed.clips.map((row) => ({
-            ...emptyClip(),
-            ...row,
-            result: row.result === "NG" ? "NG" : "OK",
-          }))
-        : cloneInitial().clips,
-      storage: Array.isArray(parsed.storage)
-        ? parsed.storage.map((row) => ({
-            ...emptyStorage(),
-            ...row,
-            status: normalizeStorageStatus(row.status),
-          }))
-        : cloneInitial().storage,
-      qc: Array.isArray(parsed.qc) ? parsed.qc : cloneInitial().qc,
-      issues: Array.isArray(parsed.issues)
-        ? parsed.issues
-        : cloneInitial().issues,
-    };
+    return normalizeReportData(JSON.parse(saved));
   } catch {
     return cloneInitial();
   }
+}
+
+export function normalizeReportData(value: unknown): ReportData {
+  if (!isRecord(value)) return cloneInitial();
+
+  const parsed = value as Partial<ReportData>;
+  const project = isRecord(parsed.project) ? parsed.project : {};
+  const handover = isRecord(parsed.handover) ? parsed.handover : {};
+
+  return {
+    ...cloneInitial(),
+    ...parsed,
+    project: { ...initialReportData.project, ...project },
+    handover: { ...initialReportData.handover, ...handover },
+    rolls: Array.isArray(parsed.rolls)
+      ? parsed.rolls.filter(isRecord).map((row) => ({
+          ...emptyRoll(),
+          ...row,
+          offloadGb: Number.isFinite(Number(row.offloadGb))
+            ? Number(row.offloadGb)
+            : 0,
+          clips: Number.isFinite(Number(row.clips)) ? Number(row.clips) : 0,
+          status:
+            typeof row.status === "string"
+              ? row.status
+              : emptyRoll().status,
+        }))
+      : cloneInitial().rolls,
+    cameraSetups: Array.isArray(parsed.cameraSetups)
+      ? parsed.cameraSetups.filter(isRecord).map((row) => ({
+          ...emptyCameraSetup(),
+          ...row,
+        }))
+      : cloneInitial().cameraSetups,
+    clips: Array.isArray(parsed.clips)
+      ? parsed.clips.filter(isRecord).map((row) => ({
+          ...emptyClip(),
+          ...row,
+          result: row.result === "NG" ? "NG" : "OK",
+        }))
+      : cloneInitial().clips,
+    storage: Array.isArray(parsed.storage)
+      ? parsed.storage.filter(isRecord).map((row) => ({
+          ...emptyStorage(),
+          ...row,
+          grade: typeof row.grade === "string" ? row.grade : "",
+          status: normalizeStorageStatus(row.status),
+        }))
+      : cloneInitial().storage,
+    qc: Array.isArray(parsed.qc) ? parsed.qc : cloneInitial().qc,
+    issues: Array.isArray(parsed.issues)
+      ? parsed.issues
+      : cloneInitial().issues,
+  } as ReportData;
+}
+
+export function createReportExport(data: ReportData) {
+  return {
+    format: REPORT_EXPORT_FORMAT,
+    version: REPORT_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    data,
+  };
+}
+
+export function parseReportImport(contents: string): ReportData {
+  const parsed: unknown = JSON.parse(contents);
+  if (!isRecord(parsed)) {
+    throw new Error("올바른 DIT 데일리 리포트 파일이 아닙니다.");
+  }
+
+  const candidate =
+    parsed.format === REPORT_EXPORT_FORMAT && isRecord(parsed.data)
+      ? parsed.data
+      : parsed;
+  const hasReportShape =
+    isRecord(candidate.project) ||
+    Array.isArray(candidate.rolls) ||
+    Array.isArray(candidate.storage);
+
+  if (!hasReportShape) {
+    throw new Error("리포트 데이터를 찾을 수 없습니다.");
+  }
+
+  return normalizeReportData(candidate);
 }
 
 export function saveReportData(data: ReportData) {

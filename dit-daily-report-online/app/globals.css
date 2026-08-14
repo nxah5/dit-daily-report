@@ -306,6 +306,18 @@ button {
   max-width: 620px;
 }
 
+.form-intro-actions {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 330px);
+}
+
+.form-intro-actions .button-secondary {
+  grid-column: 1 / -1;
+}
+
 .form-card {
   background: var(--card);
   border: 1px solid #e2e6ec;
@@ -382,6 +394,16 @@ button {
 
 .button-ghost:hover {
   background: #eceff3;
+}
+
+.button-danger-ghost {
+  background: var(--red-soft);
+  border: 1px solid #f0c2ba;
+  color: var(--red);
+}
+
+.button-danger-ghost:hover {
+  background: #ffe3de;
 }
 
 .field-grid {
@@ -759,8 +781,8 @@ button {
 }
 
 .roll-sheet :is(th, td):nth-child(8) {
-  --cell-max: 125px;
-  --cell-min: 76px;
+  --cell-max: 180px;
+  --cell-min: 142px;
 }
 
 .roll-sheet :is(th, td):nth-child(9) {
@@ -860,8 +882,8 @@ button {
 }
 
 .storage-sheet :is(th, td):nth-child(2) {
-  --cell-max: 130px;
-  --cell-min: 80px;
+  --cell-max: 180px;
+  --cell-min: 150px;
 }
 
 .storage-sheet :is(th, td):nth-child(3) {
@@ -2122,19 +2144,41 @@ button {
   padding: 3.5mm 4mm;
 }
 
-.folder-tree {
+.folder-tree-grid {
   background: #f5f6f8;
   border: 0.25mm solid #dce1e8;
   border-radius: 2.3mm;
-  color: #2d394f;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 7pt;
-  line-height: 1.55;
-  margin: 0;
+  display: grid;
+  gap: 0;
+  grid-template-columns: 1fr;
   min-height: 145mm;
   overflow: hidden;
   padding: 6mm;
+}
+
+.folder-tree-two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.folder-tree {
+  color: #2d394f;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--folder-tree-font-size, 7pt);
+  line-height: var(--folder-tree-line-height, 1.5);
+  margin: 0;
+  min-width: 0;
+  overflow: visible;
   white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.folder-tree-two-columns .folder-tree:first-child {
+  padding-right: 4mm;
+}
+
+.folder-tree-two-columns .folder-tree + .folder-tree {
+  border-left: 0.25mm solid #d3d9e2;
+  padding-left: 4mm;
 }
 
 .proxy-card {
@@ -2241,6 +2285,10 @@ button {
   .form-intro {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .form-intro-actions {
+    width: 100%;
   }
 
   .form-intro h1 {

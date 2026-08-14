@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ReactNode, Ref } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link";
 import {
   getReportMetrics,
@@ -19,6 +19,7 @@ import type { CameraSetup, ClipLog, ReportData } from "../report-data";
 const CLIP_FALLBACK_ROWS_PER_PAGE = 23;
 const SCENE_COVERAGE_ROWS_PER_PAGE = 20;
 const CAMERA_SETUP_ROWS_PER_PAGE = 16;
+const FOLDER_SINGLE_COLUMN_LINE_LIMIT = 34;
 
 function chunk<T>(rows: T[], size: number): T[][] {
   if (rows.length === 0) return [[]];
@@ -51,12 +52,133 @@ function pageSizesFromHeights(rowHeights: number[], availableHeight: number) {
   return pageSizes;
 }
 
+function folderLineDepth(line: string) {
+  const normalized = line.replaceAll("\t", "    ");
+  const connectorIndex = normalized.search(/[├└] /);
+  return connectorIndex >= 0
+    ? Math.floor(connectorIndex / 4) + 1
+    : Math.floor((normalized.match(/^ */)?.[0].length ?? 0) / 4);
+}
+
+function estimatedFolderLines(lines: string[], columnCount: 1 | 2) {
+  const characterLimit = columnCount === 1 ? 88 : 42;
+  return lines.reduce(
+    (total, line) =>
+      total + Math.max(1, Math.ceil(Array.from(line).length / characterLimit)),
+    0,
+  );
+}
+
+function splitGroupsNearHalf(groups: string[][]) {
+  if (groups.length < 2) return 1;
+  const weights = groups.map((group) => estimatedFolderLines(group, 2));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let bestIndex = 1;
+  let bestDifference = Number.POSITIVE_INFINITY;
+  let leftWeight = 0;
+
+  for (let index = 1; index < groups.length; index += 1) {
+    leftWeight += weights[index - 1];
+    const difference = Math.abs(total - leftWeight * 2);
+    if (difference < bestDifference) {
+      bestDifference = difference;
+      bestIndex = index;
+    }
+  }
+
+  return bestIndex;
+}
+
+function groupsFromBoundaries(lines: string[], starts: number[]) {
+  return starts.map((start, index) =>
+    lines.slice(start, starts[index + 1] ?? lines.length),
+  );
+}
+
+function buildFolderTreeLayout(value: string) {
+  const lines = value.split("\n").filter((line) => line.trim());
+  if (!lines.length) {
+    return {
+      columns: [["폴더트리 미입력"]],
+      fontSizePt: 7,
+      lineHeight: 1.5,
+    };
+  }
+
+  if (
+    estimatedFolderLines(lines, 1) <= FOLDER_SINGLE_COLUMN_LINE_LIMIT
+  ) {
+    return { columns: [lines], fontSizePt: 7, lineHeight: 1.5 };
+  }
+
+  const rootStarts = lines
+    .map((line, index) => (folderLineDepth(line) === 0 ? index : -1))
+    .filter((index) => index >= 0);
+  let columns: string[][];
+
+  if (rootStarts.length > 1) {
+    const rootGroups = groupsFromBoundaries(lines, rootStarts);
+    const splitIndex = splitGroupsNearHalf(rootGroups);
+    columns = [
+      rootGroups.slice(0, splitIndex).flat(),
+      rootGroups.slice(splitIndex).flat(),
+    ];
+  } else {
+    const rootLine = lines[0];
+    const childStarts = lines
+      .map((line, index) =>
+        index > 0 && folderLineDepth(line) === 1 ? index : -1,
+      )
+      .filter((index) => index >= 0);
+
+    if (childStarts.length > 1) {
+      const childGroups = groupsFromBoundaries(lines, childStarts);
+      const splitIndex = splitGroupsNearHalf(childGroups);
+      columns = [
+        [rootLine, ...childGroups.slice(0, splitIndex).flat()],
+        [`${rootLine} · CONT.`, ...childGroups.slice(splitIndex).flat()],
+      ];
+    } else {
+      const target = estimatedFolderLines(lines, 2) / 2;
+      let splitIndex = 1;
+      let accumulated = estimatedFolderLines([lines[0]], 2);
+      let bestScore = Number.POSITIVE_INFINITY;
+
+      for (let index = 1; index < lines.length; index += 1) {
+        const depthPenalty = folderLineDepth(lines[index]) * 1.5;
+        const score = Math.abs(target - accumulated) + depthPenalty;
+        if (score < bestScore) {
+          bestScore = score;
+          splitIndex = index;
+        }
+        accumulated += estimatedFolderLines([lines[index]], 2);
+      }
+
+      columns = [
+        lines.slice(0, splitIndex),
+        [`${rootLine} · CONT.`, ...lines.slice(splitIndex)],
+      ];
+    }
+  }
+
+  const maxColumnLines = Math.max(
+    ...columns.map((column) => estimatedFolderLines(column, 2)),
+  );
+  const lineHeight = maxColumnLines > 52 ? 1.25 : 1.36;
+  const fontSizePt = Math.max(
+    3.8,
+    Math.min(7, 430 / (maxColumnLines * lineHeight)),
+  );
+
+  return { columns, fontSizePt, lineHeight };
+}
+
 function statusTone(value: string) {
   const normalized = value.toUpperCase();
   if (
     normalized.includes("PASS") ||
     normalized === "OK" ||
-    normalized === "READY"
+    normalized.includes("READY")
   ) {
     return "tone-good";
   }
@@ -297,8 +419,8 @@ export default function ReportPage() {
     () => chunk(data.storage, 13),
     [data.storage],
   );
-  const folderChunks = useMemo(
-    () => chunk(data.folderTree.split("\n"), 34),
+  const folderTreeLayout = useMemo(
+    () => buildFolderTreeLayout(data.folderTree),
     [data.folderTree],
   );
 
@@ -379,7 +501,7 @@ export default function ReportPage() {
     ["OK", "PASS"].includes(item.status),
   ).length;
   const primary = data.storage.find(
-    (row) => row.grade.toLowerCase() === "primary",
+    (row) => row.grade.toLowerCase().startsWith("primary"),
   );
   const primaryReady = primary?.status.toLowerCase() === "ready";
   const totalPages =
@@ -389,8 +511,7 @@ export default function ReportPage() {
     clipChunks.length +
     sceneCoverageChunks.length +
     storageChunks.length +
-    2 +
-    folderChunks.length;
+    3;
   const rollPageStart = 3;
   const cameraSetupPageStart = rollPageStart + rollChunks.length;
   const clipPageStart =
@@ -400,7 +521,7 @@ export default function ReportPage() {
     sceneCoveragePageStart + sceneCoverageChunks.length;
   const qcPageNumber = storagePageStart + storageChunks.length;
   const handoverPageNumber = qcPageNumber + 1;
-  const folderPageStart = handoverPageNumber + 1;
+  const folderPageNumber = handoverPageNumber + 1;
 
   return (
     <main className="report-view">
@@ -1053,40 +1174,48 @@ export default function ReportPage() {
           </div>
         </Page>
 
-        {folderChunks.map((lines, chunkIndex) => {
-          return (
-            <Page
-              data={data}
-              pageNumber={folderPageStart + chunkIndex}
-              totalPages={totalPages}
-              section="DETAIL 07"
-              title="폴더트리"
-              key={`folder-page-${chunkIndex}`}
-            >
-              <SectionTitle
-                number="07"
-                eyebrow="FILE TREE"
-                title={`파일 트리 구조 · ${data.project.shootDay}`}
-                description={`백업 후 위치 변경 금지${
-                  folderChunks.length > 1
-                    ? ` · ${chunkIndex + 1}/${folderChunks.length}`
-                    : ""
-                }`}
-              />
-              <div className="tree-warning">
-                체크섬 무결성 검사가 끝난 경로입니다. 파일 또는 폴더 위치를
-                변경하면 검증 상태가 달라질 수 있습니다.
-              </div>
-              <pre className="folder-tree">{lines.join("\n") || "폴더트리 미입력"}</pre>
-              {chunkIndex === folderChunks.length - 1 ? (
-                <div className="proxy-card">
-                  <span>PROXY / BURN-IN</span>
-                  <strong>{data.proxyNote || "정보 없음"}</strong>
-                </div>
-              ) : null}
-            </Page>
-          );
-        })}
+        <Page
+          data={data}
+          pageNumber={folderPageNumber}
+          totalPages={totalPages}
+          section="DETAIL 07"
+          title="폴더트리"
+          className="folder-tree-page"
+        >
+          <SectionTitle
+            number="07"
+            eyebrow="FILE TREE"
+            title={`파일 트리 구조 · ${data.project.shootDay}`}
+            description="백업 후 위치 변경 금지"
+          />
+          <div className="tree-warning">
+            체크섬 무결성 검사가 끝난 경로입니다. 파일 또는 폴더 위치를
+            변경하면 검증 상태가 달라질 수 있습니다.
+          </div>
+          <div
+            className={`folder-tree-grid ${
+              folderTreeLayout.columns.length > 1
+                ? "folder-tree-two-columns"
+                : "folder-tree-one-column"
+            }`}
+            style={
+              {
+                "--folder-tree-font-size": `${folderTreeLayout.fontSizePt}pt`,
+                "--folder-tree-line-height": folderTreeLayout.lineHeight,
+              } as CSSProperties
+            }
+          >
+            {folderTreeLayout.columns.map((lines, columnIndex) => (
+              <pre className="folder-tree" key={`folder-column-${columnIndex}`}>
+                {lines.join("\n")}
+              </pre>
+            ))}
+          </div>
+          <div className="proxy-card">
+            <span>PROXY / BURN-IN</span>
+            <strong>{data.proxyNote || "정보 없음"}</strong>
+          </div>
+        </Page>
       </div>
     </main>
   );
