@@ -372,6 +372,12 @@ function Page({
   );
 }
 
+type PrintPageOption = {
+  id: string;
+  label: string;
+  pageNumber: number;
+};
+
 function RollTable({
   rows,
   measurement = false,
@@ -832,6 +838,97 @@ export default function ReportPage() {
   const handoverPageNumber = qcPageNumber + 1;
   const folderPageNumber = handoverPageNumber + 1;
 
+  const printPageOptions = useMemo<PrintPageOption[]>(
+    () => [
+      { id: "cover", label: "표지", pageNumber: 1 },
+      { id: "summary", label: "전체 요약", pageNumber: 2 },
+      ...rollChunks.map((_, index) => ({
+        id: `roll-${index}`,
+        label: `미디어 롤${
+          rollChunks.length > 1 ? ` ${index + 1}/${rollChunks.length}` : ""
+        }`,
+        pageNumber: rollPageStart + index,
+      })),
+      ...cameraSetupChunks.map((_, index) => ({
+        id: `camera-${index}`,
+        label: `ON-SET${
+          cameraSetupChunks.length > 1
+            ? ` ${index + 1}/${cameraSetupChunks.length}`
+            : ""
+        }`,
+        pageNumber: cameraSetupPageStart + index,
+      })),
+      ...clipChunks.map((_, index) => ({
+        id: `clip-${index}`,
+        label: `클립 · 씬${
+          clipChunks.length > 1 ? ` ${index + 1}/${clipChunks.length}` : ""
+        }`,
+        pageNumber: clipPageStart + index,
+      })),
+      ...sceneCoverageChunks.map((_, index) => ({
+        id: `coverage-${index}`,
+        label: `씬 커버리지${
+          sceneCoverageChunks.length > 1
+            ? ` ${index + 1}/${sceneCoverageChunks.length}`
+            : ""
+        }`,
+        pageNumber: sceneCoveragePageStart + index,
+      })),
+      ...storageChunks.map((_, index) => ({
+        id: `storage-${index}`,
+        label: `저장매체${
+          storageChunks.length > 1
+            ? ` ${index + 1}/${storageChunks.length}`
+            : ""
+        }`,
+        pageNumber: storagePageStart + index,
+      })),
+      { id: "qc", label: "QC · 이슈", pageNumber: qcPageNumber },
+      { id: "handover", label: "인계", pageNumber: handoverPageNumber },
+      { id: "folder", label: "폴더 트리", pageNumber: folderPageNumber },
+    ],
+    [
+      cameraSetupChunks,
+      cameraSetupPageStart,
+      clipChunks,
+      clipPageStart,
+      folderPageNumber,
+      handoverPageNumber,
+      qcPageNumber,
+      rollChunks,
+      sceneCoverageChunks,
+      sceneCoveragePageStart,
+      storageChunks,
+      storagePageStart,
+    ],
+  );
+  const [excludedPrintPageIds, setExcludedPrintPageIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const selectedPrintPageCount = printPageOptions.filter(
+    (page) => !excludedPrintPageIds.has(page.id),
+  ).length;
+  const lastSelectedPrintPageId = [...printPageOptions]
+    .reverse()
+    .find((page) => !excludedPrintPageIds.has(page.id))?.id;
+  const printPageClassName = (pageId: string, className = "") =>
+    [
+      className,
+      "print-selectable-page",
+      excludedPrintPageIds.has(pageId) ? "print-page-excluded" : "",
+      pageId === lastSelectedPrintPageId ? "print-page-last-selected" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  const togglePrintPage = (pageId: string) => {
+    setExcludedPrintPageIds((current) => {
+      const next = new Set(current);
+      if (next.has(pageId)) next.delete(pageId);
+      else next.add(pageId);
+      return next;
+    });
+  };
+
   return (
     <main className="report-view">
       <div className="report-toolbar">
@@ -857,12 +954,67 @@ export default function ReportPage() {
           <Link className="button button-dark-ghost" href="/">
             ← 입력 수정
           </Link>
+          <details className="print-page-picker">
+            <summary className="button button-dark-ghost">
+              페이지 선택
+              <span>
+                {selectedPrintPageCount}/{totalPages}
+              </span>
+            </summary>
+            <div className="print-page-picker-panel">
+              <div className="print-page-picker-heading">
+                <div>
+                  <strong>출력할 페이지</strong>
+                  <span>체크된 페이지만 인쇄합니다.</span>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setExcludedPrintPageIds(new Set())}
+                  >
+                    전체 선택
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExcludedPrintPageIds(
+                        new Set(printPageOptions.map((page) => page.id)),
+                      )
+                    }
+                  >
+                    전체 해제
+                  </button>
+                </div>
+              </div>
+              <div className="print-page-picker-list">
+                {printPageOptions.map((page) => (
+                  <label
+                    className={
+                      excludedPrintPageIds.has(page.id) ? "" : "is-selected"
+                    }
+                    key={page.id}
+                  >
+                    <input
+                      checked={!excludedPrintPageIds.has(page.id)}
+                      onChange={() => togglePrintPage(page.id)}
+                      type="checkbox"
+                    />
+                    <span>{String(page.pageNumber).padStart(2, "0")}</span>
+                    <strong>{page.label}</strong>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </details>
           <button
             className="button button-print"
+            disabled={selectedPrintPageCount === 0}
             type="button"
             onClick={() => window.print()}
           >
-            인쇄 / PDF 저장
+            {selectedPrintPageCount
+              ? `선택 ${selectedPrintPageCount}페이지 인쇄`
+              : "페이지를 선택하세요"}
             <span aria-hidden="true">↗</span>
           </button>
         </div>
@@ -981,7 +1133,9 @@ export default function ReportPage() {
       ) : null}
 
       <div className="report-pages" aria-label="A4 출력 미리보기">
-        <section className="report-page cover-page">
+        <section
+          className={printPageClassName("cover", "report-page cover-page")}
+        >
           <div className="cover-topline">
             <span>DIT DAILY DATA REPORT</span>
             <span>{data.project.reportStatus}</span>
@@ -1023,6 +1177,7 @@ export default function ReportPage() {
         </section>
 
         <Page
+          className={printPageClassName("summary")}
           data={data}
           pageNumber={2}
           totalPages={totalPages}
@@ -1204,6 +1359,7 @@ export default function ReportPage() {
         {rollChunks.map((rows, chunkIndex) => {
           return (
             <Page
+              className={printPageClassName(`roll-${chunkIndex}`)}
               data={data}
               pageNumber={rollPageStart + chunkIndex}
               totalPages={totalPages}
@@ -1236,6 +1392,7 @@ export default function ReportPage() {
 
         {cameraSetupChunks.map((rows, chunkIndex) => (
           <Page
+            className={printPageClassName(`camera-${chunkIndex}`)}
             data={data}
             pageNumber={cameraSetupPageStart + chunkIndex}
             totalPages={totalPages}
@@ -1265,6 +1422,7 @@ export default function ReportPage() {
         {clipChunks.map((rows, chunkIndex) => {
           return (
             <Page
+              className={printPageClassName(`clip-${chunkIndex}`)}
               data={data}
               pageNumber={clipPageStart + chunkIndex}
               totalPages={totalPages}
@@ -1289,7 +1447,10 @@ export default function ReportPage() {
 
         {sceneCoverageChunks.map((scenes, chunkIndex) => (
           <Page
-            className="coverage-page"
+            className={printPageClassName(
+              `coverage-${chunkIndex}`,
+              "coverage-page",
+            )}
             data={data}
             pageNumber={sceneCoveragePageStart + chunkIndex}
             totalPages={totalPages}
@@ -1314,6 +1475,7 @@ export default function ReportPage() {
         {storageChunks.map((rows, chunkIndex) => {
           return (
             <Page
+              className={printPageClassName(`storage-${chunkIndex}`)}
               data={data}
               pageNumber={storagePageStart + chunkIndex}
               totalPages={totalPages}
@@ -1343,6 +1505,7 @@ export default function ReportPage() {
         })}
 
         <Page
+          className={printPageClassName("qc")}
           data={data}
           pageNumber={qcPageNumber}
           totalPages={totalPages}
@@ -1401,6 +1564,7 @@ export default function ReportPage() {
         </Page>
 
         <Page
+          className={printPageClassName("handover")}
           data={data}
           pageNumber={handoverPageNumber}
           totalPages={totalPages}
@@ -1453,7 +1617,7 @@ export default function ReportPage() {
           totalPages={totalPages}
           section="DETAIL 07"
           title="폴더트리"
-          className="folder-tree-page"
+          className={printPageClassName("folder", "folder-tree-page")}
         >
           <SectionTitle
             number="07"

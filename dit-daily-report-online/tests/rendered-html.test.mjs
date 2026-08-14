@@ -60,7 +60,28 @@ test("renders the separate A4 report page", async () => {
   assert.match(html, /ON-SET CAMERA SETTINGS/);
   assert.match(html, /camera-setup-table/);
   assert.match(html, /씬 커버리지/);
-  assert.match(html, /인쇄 \/ PDF 저장/);
+  assert.match(html, /페이지 선택/);
+  assert.match(html, /선택 .*페이지 인쇄/);
+});
+
+test("lets the user choose which A4 pages are printed", async () => {
+  const source = await readFile(
+    new URL("../app/report/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = await readFile(
+    new URL("../app/globals.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /printPageOptions/);
+  assert.match(source, /excludedPrintPageIds/);
+  assert.match(source, /전체 선택/);
+  assert.match(source, /전체 해제/);
+  assert.match(source, /togglePrintPage/);
+  assert.match(source, /disabled=\{selectedPrintPageCount === 0\}/);
+  assert.match(css, /\.report-page\.print-page-excluded\s*\{[^}]*display:\s*none !important/s);
+  assert.match(css, /\.report-page\.print-page-last-selected\s*\{[^}]*page-break-after:\s*auto/s);
 });
 
 test("wires Clip / Scene rows into the A4 detail report", async () => {
@@ -76,7 +97,7 @@ test("wires Clip / Scene rows into the A4 detail report", async () => {
   assert.match(source, /className="print-table clip-table"/);
   assert.match(source, /title="클립 · 씬 매핑"/);
   assert.match(source, /sceneCoverageChunks\.map/);
-  assert.match(source, /className="coverage-page"/);
+  assert.match(source, /"coverage-page"/);
   assert.match(source, /씬 커버리지/);
 });
 
